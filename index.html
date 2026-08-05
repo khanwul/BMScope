@@ -1,12 +1,104 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title></title>
+    <title>BMScope — BMS 채보 분석</title>
     <link href="css/style.css" rel="stylesheet">
   </head>
   <body>
-  
+    <header>
+      <h1>BMScope</h1>
+      <span class="sub">BMS 채보 분석 · 시각화</span>
+    </header>
+
+    <label id="drop">
+      <input type="file" id="file" accept=".bms,.bme,.bml,.pms" hidden>
+      <strong>.bms 파일을 끌어다 놓기</strong>
+      <span class="dim">또는 클릭해서 선택 · .bme .bml .pms 지원</span>
+    </label>
+
+    <main id="result" hidden>
+      <section id="head">
+        <div>
+          <h2 id="title"></h2>
+          <p id="byline" class="dim"></p>
+        </div>
+        <div id="badges"></div>
+      </section>
+
+      <section class="panel">
+        <h3>채보
+          <span class="seg">
+            <label><input type="radio" name="mode" value="overview" checked>전체 보기</label>
+            <label><input type="radio" name="mode" value="play">재생</label>
+          </span>
+          <span id="view-hint" class="dim">끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그</span>
+        </h3>
+        <canvas id="overview"></canvas>
+        <canvas id="play" hidden></canvas>
+        <div id="controls">
+          <button id="playpause" type="button">▶ 재생</button>
+          <label class="chk"><input type="checkbox" id="loop" checked>구간 반복</label>
+          <label id="hispeed-l" hidden>하이스피드 <input type="range" id="hispeed" min="40" max="400" step="10" value="140"></label>
+          <label>배속 <input type="range" id="rate" min="25" max="200" step="5" value="100">
+            <span id="rate-v">1.00×</span></label>
+          <span id="seg-now" class="dim"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>타임라인
+          <span class="dim">끌어서 구간 선택 · 태그 밴드 클릭 = 그 구간 · 클릭 = 이동</span>
+          <button id="clear-range" type="button" hidden>전체</button>
+        </h3>
+        <canvas id="timeline"></canvas>
+        <p id="range" class="dim"></p>
+      </section>
+
+      <section id="viewmode">
+        <span class="seg">
+          <label><input type="radio" name="axis" value="measures" checked>마디별</label>
+          <label><input type="radio" name="axis" value="seconds">시간별</label>
+        </span>
+        <span class="dim">밀도 그래프와 구간 목록에 함께 적용됩니다</span>
+      </section>
+
+      <section class="panel">
+        <h3>밀도 <span class="dim">막대 = 종류별 노트 수 · 실선 = 순간 최대 밀도 · 파선 = BPM</span></h3>
+        <canvas id="density"></canvas>
+      </section>
+
+      <section class="panel">
+        <h3>구간별 패턴
+          <span class="seg">
+            <label><input type="radio" name="segmode" value="texture">텍스처</label>
+            <label><input type="radio" name="segmode" value="fine" checked>세분화</label>
+          </span>
+          <span id="seg-count" class="dim"></span>
+          <span class="dim">bmspc 이식 · 임계값은 7K 기준 튜닝 (DP/PMS는 미검증)</span>
+        </h3>
+        <ol id="segments"></ol>
+      </section>
+
+      <section class="cols">
+        <div class="panel">
+          <h3>통계</h3>
+          <dl id="stats"></dl>
+        </div>
+        <div class="panel">
+          <h3>성향 <span class="dim">0–100, BMScope 자체 기준</span></h3>
+          <canvas id="radar"></canvas>
+        </div>
+        <div class="panel">
+          <h3>레인별 분포</h3>
+          <canvas id="lanes"></canvas>
+        </div>
+      </section>
+
+      <p id="warn" class="dim"></p>
+    </main>
+
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>

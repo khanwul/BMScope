@@ -1,0 +1,131 @@
+:root {
+  --bg: #12141a;
+  --panel: #1a1d26;
+  --fg: #e6e9f0;
+  --dim: #8b93a7;
+  --grid: #2a2f3a;
+  --accent: #4af;
+  --key: #4af;
+  --ln: #4ade80;
+  --scratch: #e0466e;
+  --peak: #e6e9f0;
+  --bpm: #ffb84d;
+  --cursor: #fff;
+  --lane-white: #dfe6f2;
+  --lane-blue: #5b8dd9;
+
+  /* 태그 색은 여기가 단일 출처 — 배지(CSS)와 타임라인 밴드(캔버스)가 같은 값을 쓴다.
+     구체적인 태그일수록 눈에 띄는 색. */
+  --tag-denim: #c084fc;
+  --tag-stair: #f0abfc;
+  --tag-trill: #67e8f9;
+  --tag-jack: #fb7185;
+  --tag-chord: #fbbf24;
+  --tag-long: #4ade80;
+  --tag-scratch: #e0466e;
+  --tag-soflan: #ffb84d;
+  --tag-stream: #60a5fa;
+  --tag-rest: #64748b;
+  --tag-mix: #94a3b8;
+}
+
+* { box-sizing: border-box; }
+
+/* display 를 지정한 규칙(canvas, #controls)이 UA 의 [hidden] 을 이긴다. 여기서 한 번 되돌린다. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  padding: 24px;
+  max-width: 1100px;
+  margin-inline: auto;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, "Noto Sans KR", sans-serif;
+}
+
+header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+h1 { margin: 0; font-size: 20px; letter-spacing: .02em; }
+h2 { margin: 0; font-size: 22px; }
+h3 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--fg); }
+h3 .dim { font-weight: 400; margin-left: 8px; }
+
+#viewmode { display: flex; align-items: center; gap: 10px; margin-bottom: -6px; }
+.seg { display: inline-flex; border: 1px solid var(--grid); border-radius: 6px; overflow: hidden; }
+.seg label { padding: 3px 12px; font-size: 12px; font-weight: 500; color: var(--dim); cursor: pointer; }
+.seg label + label { border-left: 1px solid var(--grid); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(:checked) { background: var(--accent); color: #0b0d12; }
+.dim, .sub { color: var(--dim); font-size: 12px; }
+
+#drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; min-height: 140px; padding: 24px;
+  border: 2px dashed var(--grid); border-radius: 10px;
+  cursor: pointer; transition: border-color .15s, background .15s;
+}
+#drop:hover, #drop.over { border-color: var(--accent); background: #171b26; }
+
+main { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+
+#head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+#byline { margin: 4px 0 0; }
+#badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge {
+  padding: 3px 9px; border-radius: 999px; font-size: 12px;
+  background: var(--panel); border: 1px solid var(--grid); white-space: nowrap;
+}
+.badge.hot { border-color: var(--accent); color: var(--accent); }
+
+.panel { background: var(--panel); border: 1px solid var(--grid); border-radius: 10px; padding: 14px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+
+canvas { display: block; width: 100%; }
+#density { height: 180px; }
+#lanes, #radar { height: 210px; }
+#timeline { height: 96px; cursor: crosshair; touch-action: none; }
+#overview { height: 460px; cursor: crosshair; touch-action: none; }
+#play { height: 460px; background: #0c0e14; border-radius: 6px; }
+
+#controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; }
+#controls label { display: flex; align-items: center; gap: 6px; color: var(--dim); }
+#controls input[type=range] { width: 110px; accent-color: var(--accent); }
+#controls .chk { cursor: pointer; }
+#playpause {
+  padding: 5px 14px; font: inherit; font-weight: 600;
+  background: var(--accent); color: #0b0d12; border: 0; border-radius: 6px; cursor: pointer;
+}
+#rate-v { font-variant-numeric: tabular-nums; min-width: 42px; }
+#range { margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+
+h3 button {
+  margin-left: 8px; padding: 2px 9px; font: inherit; font-size: 11px;
+  background: none; color: var(--dim); border: 1px solid var(--grid);
+  border-radius: 5px; cursor: pointer;
+}
+h3 button:hover { color: var(--fg); border-color: var(--accent); }
+
+#segments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+#segments li { display: flex; align-items: center; gap: 6px; }
+#segments .t { color: var(--dim); font-variant-numeric: tabular-nums; font-size: 12px; min-width: 92px; }
+.tag {
+  padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  background: color-mix(in srgb, var(--tag) 22%, transparent);
+  color: var(--tag); border: 1px solid color-mix(in srgb, var(--tag) 45%, transparent);
+}
+.tag-denim   { --tag: var(--tag-denim); }
+.tag-stair   { --tag: var(--tag-stair); }
+.tag-trill   { --tag: var(--tag-trill); }
+.tag-jack    { --tag: var(--tag-jack); }
+.tag-chord   { --tag: var(--tag-chord); }
+.tag-long    { --tag: var(--tag-long); }
+.tag-scratch { --tag: var(--tag-scratch); }
+.tag-soflan  { --tag: var(--tag-soflan); }
+.tag-stream  { --tag: var(--tag-stream); }
+.tag-rest    { --tag: var(--tag-rest); }
+.tag-mix     { --tag: var(--tag-mix); }
+
+dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+dt { color: var(--dim); font-size: 12px; }
+dd { margin: 0; font-variant-numeric: tabular-nums; }
+dd small { color: var(--dim); font-weight: 400; }
