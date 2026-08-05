@@ -61,8 +61,10 @@ export function laneGeom(lanes, scale = 1) {
   return { geom, width: x, scratch, splitX }
 }
 
-export const laneVar = (col, scratch) =>
-  scratch.has(col) ? '--scratch' : col % 2 === 0 ? '--lane-white' : '--lane-blue'
+// 색은 컬럼 번호가 아니라 라벨(=플레이어별 1…7) 기준 — DP 2P 도 1번이 흰건반으로 시작한다.
+export const laneVar = (col, lanes) =>
+  lanes.scratchCols.includes(col) ? '--scratch'
+    : laneLabel(col, lanes) % 2 ? '--lane-white' : '--lane-blue'
 
 /** 레인 라벨. DP 는 양쪽 다 1…7 로 센다. */
 export function laneLabel(col, { keyCols, scratchCols }) {

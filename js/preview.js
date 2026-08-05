@@ -48,7 +48,7 @@ export function createPlayView(canvas) {
 
     // 판정 필드를 캔버스 폭의 72% 까지 키운다. 상한 MAX_SCALE 은 14K 가 화면을 다 먹지 않게.
     const scale = Math.min((w * 0.72) / laneGeom(data).width, MAX_SCALE)
-    const { geom, width: noteW, scratch, splitX } = laneGeom(data, scale)
+    const { geom, width: noteW, splitX } = laneGeom(data, scale)
     const noteH = Math.max(4, Math.round(scale))
     const gap = Math.max(1, scale * 0.2)
     const x0 = (w - noteW) / 2
@@ -57,11 +57,17 @@ export function createPlayView(canvas) {
     const origin = data.pos.position(nowBeat)
     const yOf = beat => judgeY - (data.pos.position(beat) - origin) * hispeed
 
-    // 레인 배경 — 스크래치와 짝수 건반만 살짝 어둡게 깔아 열이 구분되게
+    // 레인 배경 — 스크래치와 파란 건반만 살짝 어둡게 깔아 열이 구분되게
     for (const [col, g] of geom) {
-      ctx.fillStyle = scratch.has(col) ? 'rgba(224,70,110,0.10)' : col % 2 ? 'rgba(255,255,255,0.045)' : 'transparent'
+      const v = laneVar(col, data)
+      ctx.fillStyle = v === '--scratch' ? 'rgba(224,70,110,0.10)'
+        : v === '--lane-blue' ? 'rgba(255,255,255,0.045)' : 'transparent'
       ctx.fillRect(x0 + g.x, 0, g.w, h)
     }
+    // 필드 양 끝 선 — SP/PMS 는 오른쪽 끝이 스크래치가 아니라 배경 없이 끝나 경계가 안 보인다
+    ctx.fillStyle = css('--grid')
+    ctx.fillRect(x0 - 1, 0, 1, h)
+    ctx.fillRect(x0 + noteW, 0, 1, h)
     if (splitX != null) drawSplit(ctx, x0 + splitX, 0, h)
 
     // 마디선
@@ -79,7 +85,7 @@ export function createPlayView(canvas) {
       if (y < -8) break
       const g = geom.get(n.col)
       if (!g) continue
-      const color = css(laneVar(n.col, scratch))
+      const color = css(laneVar(n.col, data))
       if (n.isLN) {
         const yEnd = Math.max(yOf(n.endBeat), -8)
         const yStart = Math.min(y, judgeY)
@@ -127,11 +133,11 @@ export function createOverview(canvas, { onSelect, onSeek } = {}) {
   let stamp = 0 // 채보나 구간이 갈릴 때 올린다 — 다시 구울 신호
 
   function measure(w, h) {
-    const { geom, width: noteW, scratch, splitX } = laneGeom(data)
+    const { geom, width: noteW, splitX } = laneGeom(data)
     const cols = Math.max(1, Math.floor(w / (noteW + COL_GAP)))
     const colW = w / cols
     return {
-      w, h, cols, colW, geom, noteW, scratch, splitX,
+      w, h, cols, colW, geom, noteW, splitX,
       beatsPerCol: data.totalBeats / cols,
       plotH: h - PAD.t - PAD.b,
     }
@@ -191,7 +197,7 @@ export function createOverview(canvas, { onSelect, onSeek } = {}) {
       if (!g) continue
       const p = place(n.beat, L)
       if (!p) continue
-      const color = css(laneVar(n.col, L.scratch))
+      const color = css(laneVar(n.col, data))
       if (n.isLN) {
         // 컬럼 위쪽에서 자른다. 경계에 정확히 끝나면 다음 컬럼으로 넘어가므로 앱실론을 뺀다.
         const e = place(Math.min(n.endBeat, (p.c + 1) * L.beatsPerCol - 1e-9), L)

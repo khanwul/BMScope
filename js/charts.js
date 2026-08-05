@@ -197,7 +197,7 @@ export function drawLanes(canvas, stats, lanes) {
   const { ctx, w, h } = box
   const counts = stats.counts.byCol
   const max = Math.max(1, ...counts)
-  const { geom, width, scratch, splitX } = laneGeom(lanes)
+  const { geom, width, splitX } = laneGeom(lanes)
   const k = w / width
   const plotH = h - 16
   ctx.font = '10px ui-monospace, monospace'
@@ -205,7 +205,7 @@ export function drawLanes(canvas, stats, lanes) {
 
   for (const [col, g] of geom) {
     const bh = ((counts[col] || 0) / max) * plotH
-    ctx.fillStyle = css(laneVar(col, scratch))
+    ctx.fillStyle = css(laneVar(col, lanes))
     ctx.fillRect(g.x * k + 1, h - 14 - bh, g.w * k - 2, bh)
     ctx.fillStyle = css('--dim')
     ctx.fillText(laneLabel(col, lanes), (g.x + g.w / 2) * k, h - 3)
