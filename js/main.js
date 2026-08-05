@@ -6,7 +6,7 @@ import { extract } from './features.js'
 import { segments } from './segment.js'
 import { refine, tagSegments } from './tagger.js'
 import { createTimeline } from './timeline.js'
-import { createOverview, createPlayView } from './preview.js'
+import { createOverview, createPlayView, HISPEED_1X } from './preview.js'
 import { createPlayer } from './player.js'
 
 const $ = id => document.getElementById(id)
@@ -83,7 +83,14 @@ function syncTransport() {
 
 $('playpause').addEventListener('click', () => { player.toggle(); syncTransport() })
 $('loop').addEventListener('change', e => player.setLoop(e.target.checked))
-$('hispeed').addEventListener('input', e => playView.setHispeed(+e.target.value))
+// 한 노브가 두 모드에 걸린다 — 재생은 px/position, 전체 보기는 컬럼 밀도. 뜻은 같다(노트 간격).
+// 수치는 배율로 보여준다: 두 모드의 원단위가 다르고, 어느 쪽도 사용자에게 뜻이 없는 숫자다.
+$('hispeed').addEventListener('input', e => {
+  const v = +e.target.value
+  playView.setHispeed(v)
+  overview.setHispeed(v)
+  $('hispeed-v').textContent = (v / HISPEED_1X).toFixed(2) + '×'
+})
 $('rate').addEventListener('input', e => {
   const v = +e.target.value / 100
   player.setRate(v)
@@ -104,10 +111,9 @@ document.querySelectorAll('input[name=mode]').forEach(r =>
     const play = mode === 'play'
     $('overview').hidden = play
     $('play').hidden = !play
-    $('hispeed-l').hidden = !play // 하이스피드는 스크롤 렌더에만 의미가 있다
     $('view-hint').textContent = play
       ? '스페이스 = 재생/일시정지 · 하이스피드와 배속은 별개 노브'
-      : '끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그'
+      : '끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그 · 하이스피드 = 가로 확대'
     // 재생은 모드와 무관하다 — 전체 보기로 넘어와도 그대로 흐른다.
     syncTransport()
     setCursor(cursor)

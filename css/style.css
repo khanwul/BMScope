@@ -84,6 +84,9 @@ canvas { display: block; width: 100%; }
 #density { height: 180px; }
 #lanes, #radar { height: 210px; }
 #timeline { height: 96px; cursor: crosshair; touch-action: none; }
+/* 하이스피드를 올리면 컬럼이 폭을 넘는다. 넘친 쪽만 스크롤 — 터치패드 가로 스와이프가
+   브라우저 뒤로가기로 새지 않게 overscroll 을 가둔다. */
+#overview-wrap { overflow-x: auto; overscroll-behavior-x: contain; }
 #overview { height: 460px; cursor: crosshair; touch-action: none; }
 #play { height: 460px; background: #0c0e14; border-radius: 6px; }
 

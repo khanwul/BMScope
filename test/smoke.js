@@ -34,6 +34,8 @@ function el(id) {
     id, textContent: '', innerHTML: '', hidden: HIDDEN.has(id), value: '100', checked: false,
     style: {}, classList: { add: noop, remove: noop },
     width: 0, height: 0,
+    // 전체 보기는 캔버스가 아니라 래퍼의 폭으로 컬럼을 나눈다(캔버스는 넘칠 수 있다)
+    parentElement: { clientWidth: 900, clientHeight: 200, scrollLeft: 0 },
     // 크기가 음수면 브라우저는 컨텍스트를 안 준다. 숨은 채로 그리면 여기서 터진다.
     getContext() { return this.width < 0 || this.height < 0 ? null : c },
     getBoundingClientRect: () => (cache.get('result').hidden
@@ -108,4 +110,14 @@ down({ clientX: 5, clientY: 195, shiftKey: false, pointerId: 1 }); up({}) // 맨
 assert.equal(cache.get('clear-range').hidden, true, '구간 밖으로 나갔는데 구간이 남았다')
 assert.match(cache.get('range').textContent, /커서 0:00 · 재생 구간: 전체/)
 
-console.log('ok — 배선 스모크 (DOM id · 로드 → 렌더 순서 · 전체 보기 스크럽)')
+// 하이스피드 = 전체 보기의 컬럼 밀도. 올리면 캔버스가 래퍼(900)보다 넓어져 가로 스크롤이 되고,
+// 기본값(140)이면 딱 맞아 스크롤이 안 생긴다.
+const hispeed = listeners.get('hispeed:input')
+const overview = cache.get('overview')
+hispeed({ target: { value: '280' } })
+assert.equal(overview.style.width, '1800px', '하이스피드를 올려도 컬럼이 안 늘어난다')
+assert.equal(cache.get('hispeed-v').textContent, '2.00×', '하이스피드 수치가 배율로 안 나온다')
+hispeed({ target: { value: '140' } })
+assert.equal(overview.style.width, '900px', '기본값인데 캔버스가 래퍼 폭과 다르다')
+
+console.log('ok — 배선 스모크 (DOM id · 로드 → 렌더 순서 · 전체 보기 스크럽 · 하이스피드)')

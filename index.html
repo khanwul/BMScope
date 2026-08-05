@@ -35,12 +35,13 @@
           </span>
           <span id="view-hint" class="dim">끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그</span>
         </h3>
-        <canvas id="overview"></canvas>
+        <div id="overview-wrap"><canvas id="overview"></canvas></div>
         <canvas id="play" hidden></canvas>
         <div id="controls">
           <button id="playpause" type="button">▶ 재생</button>
           <label class="chk"><input type="checkbox" id="loop" checked>구간 반복</label>
-          <label id="hispeed-l" hidden>하이스피드 <input type="range" id="hispeed" min="40" max="400" step="10" value="140"></label>
+          <label>하이스피드 <input type="range" id="hispeed" min="40" max="400" step="10" value="140">
+            <span id="hispeed-v">1.00×</span></label>
           <label>배속 <input type="range" id="rate" min="25" max="200" step="5" value="100">
             <span id="rate-v">1.00×</span></label>
           <span id="seg-now" class="dim"></span>

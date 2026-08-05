@@ -10,6 +10,9 @@ import { laneGeom, laneVar } from './lanes.js'
 const COL_GAP = 14
 const PAD = { t: 6, b: 14 }
 const MAX_SCALE = 7  // 재생 모드 레인 확대 상한
+// 슬라이더 기본값. 재생 모드는 px/position, 전체 보기는 이걸 1배로 본 배율 — 표시도 배율로 한다
+export const HISPEED_1X = 140
+const MAX_CANVAS = 16384 // px. 넘기면 브라우저가 컨텍스트를 통째로 비운다
 
 /** 1P/2P 구분선. 레인 배경보다 진하게 — 여기가 손이 갈리는 지점이라 한눈에 보여야 한다. */
 function drawSplit(ctx, x, y, h) {
@@ -30,7 +33,7 @@ function drawSplit(ctx, x, y, h) {
 export function createPlayView(canvas) {
   let data = null
   let time = 0
-  let hispeed = 140  // position 단위당 px
+  let hispeed = HISPEED_1X // position 단위당 px
   let maxLnBeats = 0 // 화면 아래로 지나간 LN 의 몸통을 어디까지 거슬러 찾을지
   const JUDGE = 46   // 판정선의 바닥으로부터 거리
 
@@ -122,22 +125,31 @@ export function createPlayView(canvas) {
 /**
  * 전체 보기. 재생 중에도 이 모드를 쓸 수 있으므로 태그 배경·마디선·노트는 오프스크린에
  * 한 번 굽고, 매 프레임은 drawImage + 구간 음영 + 커서만 그린다(타임라인과 같은 수법).
+ *
+ * 하이스피드는 여기서 **컬럼 밀도**다 — 재생 모드처럼 노트 간격을 벌리되, 컬럼 높이는
+ * 화면에 고정해 두고 컬럼 수를 늘린다(악보식이라 세로로 늘리면 한 컬럼도 다 못 본다).
+ * 1배면 캔버스가 폭에 딱 맞고, 올리면 넘친 만큼 감싼 래퍼가 가로 스크롤한다.
  */
 export function createOverview(canvas, { onSelect, onSeek } = {}) {
   let data = null
   let time = 0
   let range = null
   let layout = null
+  let zoom = 1
   let baked = null
   let bakedFor = ''
   let stamp = 0 // 채보나 구간이 갈릴 때 올린다 — 다시 구울 신호
 
-  function measure(w, h) {
+  /** `hostW` 는 캔버스가 아니라 래퍼(보이는 폭) — 캔버스 폭은 여기서 정하는 결과값이다. */
+  function measure(hostW, h) {
     const { geom, width: noteW, splitX } = laneGeom(data)
-    const cols = Math.max(1, Math.floor(w / (noteW + COL_GAP)))
-    const colW = w / cols
+    const fitCols = Math.max(1, Math.floor(hostW / (noteW + COL_GAP)))
+    const unit = hostW / fitCols
+    const maxCols = Math.floor(MAX_CANVAS / (window.devicePixelRatio || 1) / unit)
+    const cols = Math.max(1, Math.min(Math.round(fitCols * zoom), maxCols))
+    const w = Math.max(hostW, cols * unit) // 축소해도 빈 여백을 남기지 않는다
     return {
-      w, h, cols, colW, geom, noteW, splitX,
+      w, h, cols, colW: w / cols, geom, noteW, splitX,
       beatsPerCol: data.totalBeats / cols,
       plotH: h - PAD.t - PAD.b,
     }
@@ -216,11 +228,14 @@ export function createOverview(canvas, { onSelect, onSeek } = {}) {
 
   function draw() {
     if (!data) return
+    // 폭을 먼저 정하고 캔버스에 박은 뒤에 fit — fit 은 실제 CSS 크기로 백버퍼를 잡는다.
+    const host = canvas.parentElement
+    const L = (layout = measure(host.clientWidth, canvas.getBoundingClientRect().height))
+    if (L.plotH <= 0 || L.w <= 0) return
+    canvas.style.width = `${L.w}px`
     const box = fit(canvas)
     if (!box) return
     const { ctx, dpr } = box
-    const L = (layout = measure(box.w, box.h))
-    if (L.plotH <= 0) return
 
     const key = `${Math.round(L.w)}|${Math.round(L.h)}|${stamp}`
     if (key !== bakedFor) { baked = bakeLayers(L, dpr); bakedFor = key }
@@ -244,6 +259,10 @@ export function createOverview(canvas, { onSelect, onSeek } = {}) {
       if (p) {
         ctx.fillStyle = css('--cursor')
         ctx.fillRect(p.x0 - 2, p.y - 0.5, L.noteW + 4, 1.5)
+        // 확대해 두면 커서가 스크롤 밖으로 나간다 — 나갔을 때만 그 컬럼을 왼쪽에 붙인다
+        const cx = p.c * L.colW
+        if (cx < host.scrollLeft || cx + L.colW > host.scrollLeft + host.clientWidth)
+          host.scrollLeft = cx
       }
     }
   }
@@ -281,6 +300,8 @@ export function createOverview(canvas, { onSelect, onSeek } = {}) {
   return {
     load(next) { data = next; time = 0; range = null; stamp++; draw() },
     setTime(t) { time = t; draw() },
+    // 컬럼 수가 갈리면 L.w 가 갈리고 굽기 키도 같이 갈린다 — 따로 무를 게 없다.
+    setHispeed(v) { zoom = v / HISPEED_1X; draw() },
     setSegs(segs) { if (data) { data.segs = segs; stamp++; draw() } },
     setRange(r) { range = r; draw() },
     draw,
