@@ -1,0 +1,111 @@
+// main.js 를 실제로 import 해서 파일 한 장을 흘려보내는 스모크. DOM 은 최소 스텁.
+//
+// run.js 는 모듈을 하나씩 부르므로 배선(DOM id, 그리는 순서)은 못 잡는다. 여기서 잡는다.
+// 스텁이 지키는 두 가지 — 브라우저와 어긋나면 버그를 놓친다:
+//   ① getElementById 는 index.html 에 실제로 있는 id 만 돌려준다 (오타 검출)
+//   ② hidden 인 조상 안의 캔버스는 0×0 이다 (숨은 채로 그리다 죽는 것 검출)
+import { readFileSync } from 'node:fs'
+import assert from 'node:assert'
+
+const root = new URL('..', import.meta.url)
+const html = readFileSync(new URL('index.html', root), 'utf8')
+const IDS = new Set([...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]))
+const HIDDEN = new Set(
+  [...html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)].filter(m => /\shidden[\s>]/.test(m[0])).map(m => m[1]))
+
+const noop = () => {}
+const ctx2d = () => new Proxy({}, {
+  get: (t, k) => {
+    if (k in t) return t[k]
+    if (k === 'measureText') return () => ({ width: 10 })
+    if (k === 'createLinearGradient') return () => ({ addColorStop: noop })
+    return (t[k] = noop)
+  },
+  set: (t, k, v) => ((t[k] = v), true),
+})
+
+const listeners = new Map()
+const cache = new Map()
+const missing = []
+
+function el(id) {
+  const c = ctx2d()
+  return {
+    id, textContent: '', innerHTML: '', hidden: HIDDEN.has(id), value: '100', checked: false,
+    style: {}, classList: { add: noop, remove: noop },
+    width: 0, height: 0,
+    // 크기가 음수면 브라우저는 컨텍스트를 안 준다. 숨은 채로 그리면 여기서 터진다.
+    getContext() { return this.width < 0 || this.height < 0 ? null : c },
+    getBoundingClientRect: () => (cache.get('result').hidden
+      ? { width: 0, height: 0, left: 0, top: 0 }
+      : { width: 900, height: 200, left: 0, top: 0 }),
+    setPointerCapture: noop,
+    addEventListener(type, fn) { listeners.set(`${id}:${type}`, fn) },
+  }
+}
+
+for (const id of IDS) cache.set(id, el(id))
+
+globalThis.document = {
+  documentElement: {},
+  getElementById: id => (IDS.has(id) ? cache.get(id) : (missing.push(id), null)),
+  querySelectorAll: () => [],
+  createElement: () => el('offscreen'),
+}
+globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#fff' })
+globalThis.window = { devicePixelRatio: 1 }
+globalThis.devicePixelRatio = 1
+globalThis.addEventListener = noop
+globalThis.requestAnimationFrame = noop
+globalThis.AudioContext = class {
+  currentTime = 0; sampleRate = 44100; destination = {}
+  createBuffer(_ch, n) { return { getChannelData: () => new Float32Array(n) } }
+  resume() {}
+}
+globalThis.DynamicsCompressorNode = class { connect() {} }
+globalThis.AudioBufferSourceNode = class { playbackRate = {}; connect() {} start() {} }
+
+await import(new URL('js/main.js', root))
+assert.deepStrictEqual(missing, [], `index.html 에 없는 id 를 찾는다: ${missing}`)
+
+const buf = readFileSync(new URL('test/fixtures/sp7k.bms', root))
+await listeners.get('file:change')({
+  target: { files: [{ name: 'sp7k.bms', size: buf.length, arrayBuffer: async () => buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length) }] },
+})
+
+assert.equal(cache.get('result').hidden, false, '패널이 안 떴다')
+assert.equal(cache.get('title').textContent, 'BMScope Demo')
+assert.match(cache.get('stats').innerHTML, /<dt>노트<\/dt>/)
+assert.match(cache.get('segments').innerHTML, /class="tag tag-/)
+assert.match(cache.get('badges').innerHTML, /7K/)
+
+// 전체 보기 조작: 끌면 커서가 따라오고, Shift+클릭은 그 구간을 재생 구간으로.
+// 스텁 캔버스는 900×200, 컬럼 12개(75px) 기준이라 x=200 은 3번째, x=700 은 10번째 컬럼.
+const down = listeners.get('overview:pointerdown')
+const up = listeners.get('overview:pointerup')
+const cursorSec = () => {
+  const m = cache.get('range').textContent.match(/커서 (\d+):(\d+)/)
+  return +m[1] * 60 + +m[2]
+}
+
+assert.equal(cursorSec(), 0)
+down({ clientX: 200, clientY: 100, shiftKey: false, pointerId: 1 }); up({})
+const early = cursorSec()
+down({ clientX: 700, clientY: 100, shiftKey: false, pointerId: 1 }); up({})
+assert.ok(early > 0, '끌어도 커서가 안 움직인다')
+assert.ok(cursorSec() > early, '오른쪽 컬럼일수록 뒤 시간이어야 한다')
+
+assert.equal(cache.get('clear-range').hidden, true)
+down({ clientX: 700, clientY: 100, shiftKey: true, pointerId: 1 }); up({})
+assert.equal(cache.get('clear-range').hidden, false, 'Shift+클릭이 구간을 안 잡는다')
+assert.match(cache.get('range').textContent, /재생 구간 \d+:\d+–(?!0:00)\d+:\d+/)
+
+// 구간 안을 찍으면 구간이 남고, 밖으로 나가면 구간을 버리고 그 자리에서 이어 재생한다
+down({ clientX: 700, clientY: 100, shiftKey: false, pointerId: 1 }); up({})
+assert.equal(cache.get('clear-range').hidden, false, '구간 안을 찍었는데 구간이 사라졌다')
+
+down({ clientX: 5, clientY: 195, shiftKey: false, pointerId: 1 }); up({}) // 맨 앞 = 구간 밖
+assert.equal(cache.get('clear-range').hidden, true, '구간 밖으로 나갔는데 구간이 남았다')
+assert.match(cache.get('range').textContent, /커서 0:00 · 재생 구간: 전체/)
+
+console.log('ok — 배선 스모크 (DOM id · 로드 → 렌더 순서 · 전체 보기 스크럽)')

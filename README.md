@@ -1,1 +1,56 @@
 # BMScope
+
+BMS 채보 파일을 브라우저에서 파싱해 **분석 · 시각화 · 재생**하는 정적 사이트.
+서버 없음, 업로드 없음 — 파일은 브라우저 밖으로 나가지 않는다.
+
+**→ https://khanwul.github.io/BMScope/**
+
+`.bms` `.bme` `.bml` `.pms` 지원. 파일을 끌어다 놓으면 끝.
+
+## 기능
+
+- **채보 프리뷰** — 전체 보기(한 화면에 통째로) / 재생 모드(스크롤 + 합성 히트음). 키음 파일 불필요.
+- **구간별 패턴 분석** — [bmspc](https://github.com/khanwul/bmspc)를 JS로 포팅. PELT로 구간을 자르고 `stream` `jack` `trill` `chord` `denim` `stair` `long` `scratch` `soflan` `rest` `mix` 11종 태그를 멀티라벨로 붙인다.
+- **밀도 그래프** — 종류별 노트 수 · 순간 최대 밀도 · BPM 변화를 마디별/시간별로.
+- **레이더 6축** — 노트수 · 순간 nps · 스크래치 · 소프란 · 롱 · 동시치기. BMScope 자체 기준(IIDX 산식 아님).
+- **타임라인 구간 선택** — 끌어서 A–B 지정, 그 구간만 반복 재생.
+- **통계 · 레인별 분포**, 인코딩 자동 판별(UTF-8 → Shift_JIS → EUC-KR).
+
+## 실행
+
+빌드 스텝이 없다. 저장소를 받아서 정적 서버로 열면 된다 (ES 모듈이라 `file://` 은 안 됨).
+
+```bash
+npm run serve      # → http://localhost:8000
+```
+
+## 개발
+
+```bash
+npm test                         # 순수 로직 + 배선 스모크
+npm i && npm run build:vendor    # bms-js 버전 올릴 때만
+```
+
+의존성은 파싱용 [bms-js](https://github.com/bemusic/bms-js) 하나뿐이고, 번들 산출물(`js/vendor/bms.js`, 34.5KB)을 커밋해 저장소의 빌드 스텝을 0으로 유지한다.
+
+`js/` 한 층이고 모듈 이름이 곧 역할이다. 각 파일 첫 주석이 자기 계약을 적어 두므로, 구현된 동작의 정답은 코드다 — 레인 배치는 `lanes.js`, bmspc 포팅분은 `features.js`/`segment.js`/`tagger.js`, 렌더러는 `charts.js`/`timeline.js`/`preview.js`, 배선은 `main.js`.
+
+## 한계
+
+- 지뢰(`D1–E9`)는 파싱·통계·렌더·재생 어디에도 없다. bmspc도 무시하므로 분석 결과와 일관된다.
+- `#RANDOM`/`#SWITCH`는 항상 첫 분기로 고정 전개하고 배지로 표시만 한다.
+- 패턴 태그 임계값은 7K 기준 튜닝 값. DP/PMS는 원본과 마찬가지로 best-effort.
+- `.bmson`은 별개 JSON 포맷이라 제외.
+
+## 사용한 프로젝트
+
+- **[bms-js](https://github.com/bemusic/bms-js)** (MIT) — 유일한 런타임 의존성. `#RANDOM`/`#SWITCH` 전개, BPM 변화·STOP·마디배율을 반영한 시간축 계산, LN 해석을 맡는다. 노드 전용 `Reader`를 피하려고 서브모듈만 직접 번들한다 ([build/entry.js](build/entry.js) 주석 참고).
+- **[bmspc](https://github.com/khanwul/bmspc)** (MIT, Python) — 구간 분할과 패턴 태깅의 원본. 윈도우 피처 · PELT 구간화 · 태그 11종 임계값을 JS로 포팅했고, 원본의 `__main__` self-check를 `test/run.js`로 옮겨 대조 검증했다.
+- **[ruptures](https://github.com/deepcharles/ruptures)** (BSD-2, Python) — bmspc가 쓰는 변화점 탐지 라이브러리. JS 대체품이 없어 PELT를 직접 구현했다(45줄). PELT는 정확 알고리즘이라 — 가지치기는 속도 최적화일 뿐 — 같은 목적함수의 DP를 풀면 경계가 동일하다. `ruptures`의 기본값 `jump=5`를 그대로 맞춰야 원본과 결과가 같다.
+- **[esbuild](https://github.com/evanw/esbuild)** (MIT) — bms-js 번들링. 개발 의존성이라 저장소를 쓰는 쪽에는 필요 없다.
+
+차트·재생기·UI에는 라이브러리를 쓰지 않는다. `<canvas>`, Web Audio API, `TextDecoder` 전부 네이티브.
+
+## 라이선스
+
+MIT — [LICENSE](LICENSE).
