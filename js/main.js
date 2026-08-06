@@ -14,6 +14,7 @@ const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2
 const r1 = n => n.toFixed(1)
 
 let current = null
+let currentFile = null
 let cursor = 0
 
 // 구간 나누기 방식. 'texture' = bmspc 기본(밀도·반복 변화만), 'fine' = 그 안에서 태그가
@@ -97,12 +98,25 @@ $('rate').addEventListener('input', e => {
   $('rate-v').textContent = v.toFixed(2) + '×'
 })
 
-// 스페이스로 재생/일시정지. 입력 위젯에 포커스가 있으면 넘긴다.
+function selectSegment(seg) {
+  if (seg) timeline.setRange({ a: seg.t0, b: seg.t1 })
+}
+
+// 스페이스 재생, 좌우 5초 이동, Shift+좌우 구간 이동. 입력 위젯에 포커스가 있으면 넘긴다.
 addEventListener('keydown', e => {
-  if (e.code !== 'Space' || !current || /^(INPUT|BUTTON|TEXTAREA)$/.test(e.target.tagName)) return
+  if (!current || /^(INPUT|BUTTON|TEXTAREA|SELECT)$/.test(e.target?.tagName || '')) return
+  if (e.code === 'Space') {
+    e.preventDefault()
+    player.toggle()
+    syncTransport()
+    return
+  }
+  if (!['ArrowLeft', 'ArrowRight'].includes(e.code)) return
   e.preventDefault()
-  player.toggle()
-  syncTransport()
+  const dir = e.code === 'ArrowRight' ? 1 : -1
+  if (!e.shiftKey) return seekTo(Math.max(0, Math.min(current.stats.duration, cursor + dir * 5)))
+  const ordered = dir > 0 ? current.segs : [...current.segs].reverse()
+  selectSegment(ordered.find(s => dir > 0 ? s.t0 > cursor + 1e-3 : s.t0 < cursor - 1e-3))
 })
 
 document.querySelectorAll('input[name=mode]').forEach(r =>
@@ -119,9 +133,9 @@ document.querySelectorAll('input[name=mode]').forEach(r =>
     setCursor(cursor)
   }))
 
-async function show(file) {
+async function show(file, random = 1) {
   cursor = 0
-  const parsed = await loadFile(file)
+  const parsed = await loadFile(file, { random })
   const lanes = toLanes(parsed)
   // 확장자·#명령 검사를 통과해도 채보가 없으면 볼 게 없다 — 빈 패널 대신 오류로 끝낸다.
   if (!lanes.notes.length) throw new Error('연주 노트가 없습니다 — 채보가 아니거나 손상된 파일입니다')
@@ -135,7 +149,7 @@ async function show(file) {
 
   const { segs } = current
   const view = { notes: lanes.notes, keyCols: lanes.keyCols, scratchCols: lanes.scratchCols, segs }
-  timeline.load({ ...view, id: file.name + file.size, duration: stats.duration })
+  timeline.load({ ...view, id: `${file.name}${file.size}:${parsed.randomChoice}`, duration: stats.duration })
   overview.load({ ...view, totalBeats: lanes.totalBeats, measureStarts: lanes.measureStarts, timing: parsed.timing })
   playView.load({ ...view, measureStarts: lanes.measureStarts, timing: parsed.timing, pos: parsed.pos })
   player.load({ ...view, duration: stats.duration })
@@ -158,6 +172,10 @@ async function show(file) {
     .filter(([t]) => t)
     .map(([t, hot]) => `<span class="badge${hot ? ' hot' : ''}">${t}</span>`)
     .join('')
+
+  $('random-control').hidden = parsed.randomMax < 2
+  $('random-branch').max = parsed.randomMax
+  $('random-branch').value = parsed.randomChoice
 
   const rows = [
     ['노트', `${counts.total.toLocaleString()} <small>(LN ${counts.ln} · 스크래치 ${counts.scratch}${counts.invisible ? ` · 비가시 ${counts.invisible}` : ''})</small>`],
@@ -207,10 +225,48 @@ function redraw() {
     : s => `${mmss(s.t0)}–${mmss(s.t1)}`
   $('seg-count').textContent = segs.length ? `${segs.length}개` : ''
   $('segments').innerHTML = segs.length
-    ? segs.map(s => `<li><span class="t">${range(s)}</span>` +
+    ? segs.map((s, i) => `<li data-seg="${i}" title="클릭해서 이 구간 선택"><span class="t">${range(s)}</span>` +
         s.tags.map(t => `<span class="tag tag-${t}">${t}</span>`).join('') + '</li>').join('')
     : '<li class="dim">구간 없음 (노트가 없거나 너무 짧음)</li>'
 }
+
+$('segments').addEventListener('click', e => {
+  const li = e.target.closest('[data-seg]')
+  if (li) selectSegment(current?.segs[+li.dataset.seg])
+})
+
+$('random-branch').addEventListener('change', e => open(currentFile, +e.target.value))
+$('reroll').addEventListener('click', () => {
+  const max = current?.parsed.randomMax || 1
+  let choice = 1 + Math.floor(Math.random() * max)
+  if (max > 1 && choice === current.parsed.randomChoice) choice = choice % max + 1
+  open(currentFile, choice)
+})
+
+$('copy-analysis').addEventListener('click', async e => {
+  const { parsed, stats, radar: axes, segs } = current
+  const report = {
+    file: currentFile.name,
+    title: stats.info.title,
+    artist: stats.info.artist,
+    mode: stats.mode,
+    level: stats.info.level,
+    duration: stats.duration,
+    bpm: stats.bpm,
+    counts: stats.counts,
+    radar: Object.fromEntries(axes.map(a => [a.key, +a.value.toFixed(1)])),
+    segments: segs.map(s => ({ start: s.t0, end: s.t1, tags: s.tags })),
+    ...(parsed.randomMax > 1 && { randomBranch: parsed.randomChoice }),
+  }
+  const label = e.currentTarget.textContent
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(report, null, 2))
+    e.currentTarget.textContent = '복사됨'
+  } catch {
+    e.currentTarget.textContent = '복사 실패'
+  }
+  setTimeout(() => { e.currentTarget.textContent = label }, 1200)
+})
 
 document.querySelectorAll('input[name=axis]').forEach(r =>
   r.addEventListener('change', e => { axis = e.target.value; redraw() }))
@@ -230,9 +286,11 @@ document.querySelectorAll('input[name=segmode]').forEach(r =>
 addEventListener('resize', redraw)
 
 // 파일 진입점. 두 경로(선택·드롭)가 여기로 모이므로 파싱 실패도 여기서만 잡는다.
-function open(file) {
+function open(file, random = 1) {
+  if (!file) return
+  currentFile = file
   $('error').hidden = true
-  return show(file).catch(e => {
+  return show(file, random).catch(e => {
     current = null
     player.stop()
     syncTransport()

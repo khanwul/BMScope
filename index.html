@@ -26,7 +26,16 @@
           <h2 id="title"></h2>
           <p id="byline" class="dim"></p>
         </div>
-        <div id="badges"></div>
+        <div id="head-tools">
+          <div id="badges"></div>
+          <div id="actions">
+            <label id="random-control" hidden>#RANDOM
+              <input id="random-branch" type="number" min="1" step="1">
+              <button id="reroll" type="button">다시 뽑기</button>
+            </label>
+            <button id="copy-analysis" type="button">분석 JSON 복사</button>
+          </div>
+        </div>
       </section>
 
       <section class="panel">

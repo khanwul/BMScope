@@ -415,4 +415,14 @@ const SEVEN = [
   assert.doesNotThrow(() => parse('#BPM 150', { name: 'x.pms' }), '헤더만 있어도 BMS 는 BMS')
 }
 
+// ── #RANDOM 분기 ─────────────────────────────────────────────────────────────
+{
+  const text = '#BPM 120\n#RANDOM 2\n#IF 1\n#00111:01\n#ENDIF\n#IF 2\n#00112:01\n#ENDIF'
+  const one = toLanes(parse(text, { name: 'x.bms', random: 1 }))
+  const two = toLanes(parse(text, { name: 'x.bms', random: 2 }))
+  assert.deepEqual(one.notes.map(n => n.col), [0], '1번 분기')
+  assert.deepEqual(two.notes.map(n => n.col), [1], '2번 분기')
+  assert.equal(parse(text, { random: 99 }).randomChoice, 2, '범위 밖 선택은 마지막 분기로 제한')
+}
+
 console.log('ok — 레인 매핑 · 시간축 · 마디 집계 · 윈도우 피처 · PELT 구간 · 태거 · 레이더 · 재생기 · 인코딩')

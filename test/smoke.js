@@ -57,7 +57,8 @@ globalThis.document = {
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#fff' })
 globalThis.window = { devicePixelRatio: 1 }
 globalThis.devicePixelRatio = 1
-globalThis.addEventListener = noop
+const windowListeners = new Map()
+globalThis.addEventListener = (type, fn) => windowListeners.set(type, fn)
 globalThis.requestAnimationFrame = noop
 globalThis.AudioContext = class {
   currentTime = 0; sampleRate = 44100; destination = {}
@@ -81,6 +82,11 @@ assert.match(cache.get('stats').innerHTML, /<dt>노트<\/dt>/)
 assert.match(cache.get('segments').innerHTML, /class="tag tag-/)
 assert.match(cache.get('badges').innerHTML, /7K/)
 
+// 구간 목록도 타임라인 밴드처럼 한 번 클릭으로 재생 구간을 잡는다.
+listeners.get('segments:click')({ target: { closest: () => ({ dataset: { seg: '0' } }) } })
+assert.equal(cache.get('clear-range').hidden, false, '구간 목록 클릭이 구간을 안 잡는다')
+listeners.get('clear-range:click')()
+
 // 전체 보기 조작: 끌면 커서가 따라오고, Shift+클릭은 그 구간을 재생 구간으로.
 // 스텁 캔버스는 900×200, 컬럼 12개(75px) 기준이라 x=200 은 3번째, x=700 은 10번째 컬럼.
 const down = listeners.get('overview:pointerdown')
@@ -90,6 +96,15 @@ const cursorSec = () => {
   return +m[1] * 60 + +m[2]
 }
 
+// 키보드 좌우는 5초 이동. 폼 컨트롤에 포커스가 있으면 건드리지 않는다.
+const keydown = windowListeners.get('keydown')
+keydown({ code: 'ArrowRight', shiftKey: false, target: { tagName: 'BODY' }, preventDefault: noop })
+assert.ok(cursorSec() >= 5, '오른쪽 키로 5초 이동하지 않는다')
+const beforeInputKey = cursorSec()
+keydown({ code: 'ArrowLeft', shiftKey: false, target: { tagName: 'INPUT' }, preventDefault: noop })
+assert.equal(cursorSec(), beforeInputKey, '입력 위젯의 방향키를 가로챈다')
+
+keydown({ code: 'ArrowLeft', shiftKey: false, target: { tagName: 'BODY' }, preventDefault: noop })
 assert.equal(cursorSec(), 0)
 down({ clientX: 200, clientY: 100, shiftKey: false, pointerId: 1 }); up({})
 const early = cursorSec()
@@ -136,5 +151,22 @@ for (const [name, bytes, why] of [
   assert.equal(cache.get('error').hidden, false, `${why}: 오류 메시지가 안 나온다`)
   assert.ok(cache.get('error').textContent.startsWith(name), `${why}: 어느 파일인지 안 알려준다`)
 }
+
+const randomChart = enc.encode('#BPM 120\n#RANDOM 2\n#IF 1\n#00111:01\n#ENDIF\n#IF 2\n#00112:01\n#ENDIF')
+await feed('random.bms', randomChart)
+assert.equal(cache.get('random-control').hidden, false, '#RANDOM 선택기가 안 보인다')
+assert.equal(cache.get('random-branch').max, 2)
+await listeners.get('random-branch:change')({ target: { value: '2' } })
+assert.equal(cache.get('random-branch').value, 2, '#RANDOM 2번 분기로 다시 읽지 않는다')
+
+// JSON 복사에는 화면 요약과 구간 분석이 함께 들어간다.
+await feed('sp7k.bms', new Uint8Array(buf))
+let copied = ''
+globalThis.navigator.clipboard = { writeText: async text => { copied = text } }
+const copyButton = cache.get('copy-analysis')
+await listeners.get('copy-analysis:click')({ currentTarget: copyButton })
+const report = JSON.parse(copied)
+assert.equal(report.title, 'BMScope Demo')
+assert.ok(report.segments.length, '복사한 JSON에 구간이 없다')
 
 console.log('ok — 배선 스모크 (DOM id · 로드 → 렌더 순서 · 전체 보기 스크럽 · 하이스피드 · 잘못된 파일 거부)')
