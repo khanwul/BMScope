@@ -123,6 +123,8 @@ async function show(file) {
   cursor = 0
   const parsed = await loadFile(file)
   const lanes = toLanes(parsed)
+  // 확장자·#명령 검사를 통과해도 채보가 없으면 볼 게 없다 — 빈 패널 대신 오류로 끝낸다.
+  if (!lanes.notes.length) throw new Error('연주 노트가 없습니다 — 채보가 아니거나 손상된 파일입니다')
   const stats = analyze(parsed, lanes)
   // ponytail: 메인 스레드 동기 실행. 로드 시 1회뿐이라 허용 — 체감 렉이 생기면 Web Worker 로.
   const wf = extract(lanes, parsed.timing)
@@ -240,7 +242,12 @@ function open(file) {
   })
 }
 
-$('file').addEventListener('change', e => e.target.files[0] && open(e.target.files[0]))
+// value 를 비워야 같은 파일을 다시 골랐을 때도 change 가 뜬다 — 오류 뒤 재시도가 먹통이 된다.
+$('file').addEventListener('change', e => {
+  const f = e.target.files[0]
+  e.target.value = ''
+  if (f) return open(f)
+})
 
 const drop = $('drop')
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over') })
