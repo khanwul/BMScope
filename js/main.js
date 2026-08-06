@@ -227,7 +227,20 @@ document.querySelectorAll('input[name=segmode]').forEach(r =>
 
 addEventListener('resize', redraw)
 
-$('file').addEventListener('change', e => e.target.files[0] && show(e.target.files[0]))
+// 파일 진입점. 두 경로(선택·드롭)가 여기로 모이므로 파싱 실패도 여기서만 잡는다.
+function open(file) {
+  $('error').hidden = true
+  return show(file).catch(e => {
+    current = null
+    player.stop()
+    syncTransport()
+    $('result').hidden = true
+    $('error').textContent = `${file.name} — ${e.message}`
+    $('error').hidden = false
+  })
+}
+
+$('file').addEventListener('change', e => e.target.files[0] && open(e.target.files[0]))
 
 const drop = $('drop')
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over') })
@@ -236,5 +249,5 @@ drop.addEventListener('drop', e => {
   e.preventDefault()
   drop.classList.remove('over')
   const f = e.dataTransfer.files[0]
-  if (f) show(f)
+  if (f) open(f)
 })

@@ -408,4 +408,11 @@ const SEVEN = [
   assert.equal(d.text, '#TITLE テスト')
 }
 
+// ── 형식 거부 ────────────────────────────────────────────────────────────────
+{
+  assert.throws(() => parse('#BPM 120\n#00111:01', { name: 'song.mp3' }), /지원하지 않습니다/)
+  assert.throws(() => parse('\x00\xff\xd8just binary junk', { name: 'x.bms' }), /BMS 형식이 아닙니다/)
+  assert.doesNotThrow(() => parse('#BPM 150', { name: 'x.pms' }), '헤더만 있어도 BMS 는 BMS')
+}
+
 console.log('ok — 레인 매핑 · 시간축 · 마디 집계 · 윈도우 피처 · PELT 구간 · 태거 · 레이더 · 재생기 · 인코딩')

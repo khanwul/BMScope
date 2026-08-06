@@ -120,4 +120,12 @@ assert.equal(cache.get('hispeed-v').textContent, '2.00×', '하이스피드 수�
 hispeed({ target: { value: '140' } })
 assert.equal(overview.style.width, '900px', '기본값인데 캔버스가 래퍼 폭과 다르다')
 
-console.log('ok — 배선 스모크 (DOM id · 로드 → 렌더 순서 · 전체 보기 스크럽 · 하이스피드)')
+console.log('ok — 배선 스모크 (DOM id · 로드 → 렌더 순서 · 전체 보기 스크럽 · 하이스피드 · 형식 거부)')
+
+// BMS 아닌 파일: 패널을 감추고 오류만 띄운다 (앞 파일 결과가 남아 있으면 안 된다).
+await listeners.get('file:change')({
+  target: { files: [{ name: 'song.mp3', size: 3, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer }] },
+})
+assert.equal(cache.get('result').hidden, true, '오류인데 패널이 그대로 떠 있다')
+assert.equal(cache.get('error').hidden, false, '오류 메시지가 안 나온다')
+assert.match(cache.get('error').textContent, /song\.mp3/)
