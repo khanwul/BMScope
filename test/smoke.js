@@ -42,24 +42,40 @@ function el(id) {
       ? { width: 0, height: 0, left: 0, top: 0 }
       : { width: 900, height: 200, left: 0, top: 0 }),
     setPointerCapture: noop,
+    click: noop,
+    toBlob: cb => cb({}),
     addEventListener(type, fn) { listeners.set(`${id}:${type}`, fn) },
   }
 }
 
 for (const id of IDS) cache.set(id, el(id))
 
+let lastCreated = null
 globalThis.document = {
   documentElement: {},
   getElementById: id => (IDS.has(id) ? cache.get(id) : (missing.push(id), null)),
   querySelectorAll: () => [],
-  createElement: () => el('offscreen'),
+  createElement: () => (lastCreated = el('offscreen')),
 }
+globalThis.URL.createObjectURL = () => 'blob:x'
+globalThis.URL.revokeObjectURL = noop
 globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#fff' })
 globalThis.window = { devicePixelRatio: 1 }
 globalThis.devicePixelRatio = 1
 const windowListeners = new Map()
 globalThis.addEventListener = (type, fn) => windowListeners.set(type, fn)
 globalThis.requestAnimationFrame = noop
+globalThis.cancelAnimationFrame = noop
+// 헤드리스에는 모션이 없다. reduce 로 답하면 차트가 rAF 없이 최종 상태로 한 번에 그려진다.
+globalThis.matchMedia = () => ({ matches: true })
+// 스텁 뷰포트에는 스크롤이 없다 — 관찰하는 즉시 보이는 것으로 친다. 이게 있어야
+// 등장 애니메이션 경로를 타고도 차트가 실제로 그려지는지 검사된다.
+globalThis.IntersectionObserver = class {
+  constructor(cb) { this.cb = cb }
+  observe(target) { this.cb([{ target, isIntersecting: true }], this) }
+  unobserve() {}
+  disconnect() {}
+}
 globalThis.AudioContext = class {
   currentTime = 0; sampleRate = 44100; destination = {}
   createBuffer(_ch, n) { return { getChannelData: () => new Float32Array(n) } }
@@ -168,5 +184,10 @@ await listeners.get('copy-analysis:click')({ currentTarget: copyButton })
 const report = JSON.parse(copied)
 assert.equal(report.title, 'BMScope Demo')
 assert.ok(report.segments.length, '복사한 JSON에 구간이 없다')
+
+// 이미지 저장: 카드를 굽고 채보 이름으로 내려받는다.
+await listeners.get('save-image:click')()
+assert.equal(lastCreated.download, 'sp7k.png', '이미지 저장이 파일 이름을 안 따라간다')
+assert.ok(lastCreated.href, '내려받을 URL 이 없다')
 
 console.log('ok — 배선 스모크 (DOM id · 로드 → 렌더 순서 · 전체 보기 스크럽 · 하이스피드 · 잘못된 파일 거부)')

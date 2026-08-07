@@ -1,7 +1,7 @@
 import { loadFile } from './load.js'
 import { toLanes } from './lanes.js'
 import { analyze, measureToken, radar, RANK_NAMES } from './analyze.js'
-import { drawDensity, drawLanes, drawRadar } from './charts.js'
+import { drawDensity, drawLanes, drawRadar, snapshot } from './charts.js'
 import { extract } from './features.js'
 import { segments } from './segment.js'
 import { refine, tagSegments } from './tagger.js'
@@ -189,11 +189,17 @@ async function show(file, random = 1) {
   ]
   $('stats').innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')
 
+  // 이미지 저장이 쓸 텍스트. 화면에 넣은 것과 같은 배열에서 뽑아 두 벌이 어긋나지 않게 한다.
+  current.card = {
+    badges: badges.filter(([t]) => t),
+    stats: rows.map(([k, v]) => [k, String(v).replace(/<[^>]+>/g, '')]),
+  }
+
   $('warn').textContent = parsed.warnings.length
     ? `경고 ${parsed.warnings.length}건: ${parsed.warnings.slice(0, 3).map(w => `${w.lineNumber}행 ${w.message}`).join(' / ')}`
     : ''
 
-  redraw()
+  redraw(true)
 }
 
 function showRange() {
@@ -208,15 +214,57 @@ $('clear-range').addEventListener('click', () => timeline.clearRange())
 // 마디별 / 시간별. 밀도 그래프의 x축과 구간 목록의 범위 표기에 함께 적용된다.
 let axis = 'measures'
 
-function redraw() {
+// 차트 셋은 따로 뗀다 — 캔버스는 CSS 로 못 물리니 등장 애니메이션을 직접 돌려야 하고,
+// 화면에 들어온 것만 자라야 하므로 하나씩 부를 수 있어야 한다.
+// (타임라인·전체 보기는 노트를 전부 훑으므로 여기 끼면 프레임이 무너진다.)
+const chartDraw = {
+  density: g => {
+    const bars = current.stats.density[axis]
+    const tick = axis === 'measures' ? i => i : i => mmss(bars[i].startTime)
+    drawDensity($('density'), bars, { tick, grow: g })
+  },
+  radar: g => drawRadar($('radar'), current.radar, g),
+  lanes: g => drawLanes($('lanes'), current.stats, current.lanes, g),
+}
+const drawCharts = () => { for (const id in chartDraw) chartDraw[id](1) }
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)')
+const chartRaf = {}
+
+function growChart(id) {
+  cancelAnimationFrame(chartRaf[id])
+  if (reduceMotion.matches) return chartDraw[id](1)
+  const t0 = performance.now()
+  const step = now => {
+    const p = Math.min(1, (now - t0) / 450)
+    chartDraw[id](1 - (1 - p) ** 3) // easeOutCubic
+    if (p < 1) chartRaf[id] = requestAnimationFrame(step)
+  }
+  chartRaf[id] = requestAnimationFrame(step)
+}
+
+// 페이지가 길다 — 로드 때 셋 다 돌리면 접힌 화면 아래 차트는 다 놓친다. 화면에 들어올 때 시작.
+const reveal = new IntersectionObserver((entries, obs) => {
+  for (const { target, isIntersecting } of entries) {
+    if (!isIntersecting) continue
+    obs.unobserve(target) // 등장은 한 번뿐. 스크롤 오갈 때마다 다시 자라면 산만하다.
+    growChart(target.id)
+  }
+}, { threshold: 0.25 })
+
+function armCharts() {
+  reveal.disconnect()
+  for (const id in chartDraw) reveal.observe($(id))
+}
+
+// `animate` 는 새 채보를 띄울 때만. 리사이즈·축 전환은 즉시 그린다 — 조작할 때마다
+// 차트가 다시 자라면 값을 비교할 수가 없다.
+function redraw(animate = false) {
   if (!current) return
-  const { stats, lanes, segs } = current
+  const { lanes, segs } = current
   const byMeasure = axis === 'measures'
 
-  const bars = stats.density[axis]
-  drawDensity($('density'), bars, { tick: byMeasure ? i => i : i => mmss(bars[i].startTime) })
-  drawRadar($('radar'), current.radar)
-  drawLanes($('lanes'), stats, lanes)
+  animate ? armCharts() : drawCharts()
   timeline.draw()
   ;(mode === 'play' ? playView : overview).draw()
 
@@ -241,6 +289,26 @@ $('reroll').addEventListener('click', () => {
   let choice = 1 + Math.floor(Math.random() * max)
   if (max > 1 && choice === current.parsed.randomChoice) choice = choice % max + 1
   open(currentFile, choice)
+})
+
+// 이미지 저장 — 화면에 그려진 캔버스를 그대로 카드 한 장으로 굽는다.
+$('save-image').addEventListener('click', async () => {
+  if (!current) return
+  drawCharts() // 스크롤이 안 닿아 아직 안 그려진 차트가 있으면 여기서 채운다
+  const canvas = snapshot({
+    title: $('title').textContent,
+    byline: $('byline').textContent,
+    ...current.card,
+    rows: [[$('overview')], [$('timeline')], [$('density')], [$('radar'), $('lanes')]],
+    footer: `${currentFile.name} · BMScope`,
+  })
+  const blob = await new Promise(res => canvas.toBlob(res, 'image/png'))
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = currentFile.name.replace(/\.[^.]*$/, '') + '.png'
+  a.click()
+  // 즉시 revoke 하면 브라우저가 저장을 시작하기 전에 URL 이 죽는 경우가 있다.
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 })
 
 $('copy-analysis').addEventListener('click', async e => {
@@ -283,13 +351,16 @@ document.querySelectorAll('input[name=segmode]').forEach(r =>
     redraw()
   }))
 
-addEventListener('resize', redraw)
+// 이벤트 객체가 `animate` 로 새면 리사이즈마다 차트가 다시 자란다.
+addEventListener('resize', () => redraw())
 
 // 파일 진입점. 두 경로(선택·드롭)가 여기로 모이므로 파싱 실패도 여기서만 잡는다.
 function open(file, random = 1) {
   if (!file) return
   currentFile = file
   $('error').hidden = true
+  // display 를 껐다 켜야 등장 애니메이션이 다시 돈다 — 다시 뽑기·브랜치 변경도 새 결과다.
+  $('result').hidden = true
   return show(file, random).catch(e => {
     current = null
     player.stop()

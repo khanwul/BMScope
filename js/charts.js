@@ -58,9 +58,9 @@ function line(ctx, bars, valueOf, toY, x0, bw, color, { dash = [], step = false 
 /**
  * 밀도 그래프. 마디 버킷과 시간 버킷이 같은 형태라 렌더러 하나로 둘 다 그린다.
  *   쌓은 막대 = 종류별 노트 수 · 실선 = 순간 최대 밀도(1초 창) · 파선 = BPM
- * `tick(i)` 이 x축 라벨을 만든다.
+ * `tick(i)` 이 x축 라벨을 만든다. `grow` 0–1 은 등장 애니메이션용 세로 배율.
  */
-export function drawDensity(canvas, bars, { tick = i => i } = {}) {
+export function drawDensity(canvas, bars, { tick = i => i, grow = 1 } = {}) {
   const box = fit(canvas)
   if (!box || !bars.length) return
   const { ctx, w, h } = box
@@ -93,6 +93,12 @@ export function drawDensity(canvas, bars, { tick = i => i } = {}) {
     ctx.fillText(Math.round((maxNotes * i) / 4), pad.l - 5, y + 3)
   }
 
+  // 막대와 두 선은 바닥 기준으로 눌러서 자라게 한다 — 격자·축·범례는 처음부터 제자리.
+  ctx.save()
+  ctx.translate(0, bottom)
+  ctx.scale(1, grow)
+  ctx.translate(0, -bottom)
+
   // 종류별 누적 막대
   const barW = Math.max(bw - 0.5, 0.8)
   for (const b of bars) {
@@ -112,6 +118,7 @@ export function drawDensity(canvas, bars, { tick = i => i } = {}) {
   line(ctx, bars, b => b.bpm,
     v => bottom - ((v - bpmLo) / bpmSpan) * plotH * 0.84 - plotH * 0.08,
     pad.l, bw, cBpm, { dash: [4, 3], step: true })
+  ctx.restore()
 
   // 범례 겸 축 — 선마다 우측 축을 세우면 라벨이 겹친다
   ctx.textAlign = 'left'
@@ -136,7 +143,7 @@ export function drawDensity(canvas, bars, { tick = i => i } = {}) {
 }
 
 /** 6축 레이더. 축 순서가 곧 육각형의 꼭짓점 순서(12시부터 시계방향). */
-export function drawRadar(canvas, axes) {
+export function drawRadar(canvas, axes, grow = 1) {
   const box = fit(canvas)
   if (!box) return
   const { ctx, w, h } = box
@@ -163,7 +170,7 @@ export function drawRadar(canvas, axes) {
   // 값 다각형
   const accent = css('--accent')
   ctx.beginPath()
-  axes.forEach((a, i) => ctx[i ? 'lineTo' : 'moveTo'](...pt(i, (R * a.value) / 100)))
+  axes.forEach((a, i) => ctx[i ? 'lineTo' : 'moveTo'](...pt(i, (R * a.value * grow) / 100)))
   ctx.closePath()
   ctx.fillStyle = accent
   ctx.globalAlpha = 0.22
@@ -191,7 +198,7 @@ export function drawRadar(canvas, axes) {
 /** 레인별 노트 분포 막대. */
 // 막대 순서·색·폭을 재생기와 맞춘다 — 두 그림을 눈으로 대조하려면 같은 배치여야 한다.
 // 스크래치가 왼쪽 끝(DP 는 오른쪽에도), 흰/파란 건반이 번갈아, 스크래치 레인이 더 넓다.
-export function drawLanes(canvas, stats, lanes) {
+export function drawLanes(canvas, stats, lanes, grow = 1) {
   const box = fit(canvas)
   if (!box) return
   const { ctx, w, h } = box
@@ -204,7 +211,7 @@ export function drawLanes(canvas, stats, lanes) {
   ctx.textAlign = 'center'
 
   for (const [col, g] of geom) {
-    const bh = ((counts[col] || 0) / max) * plotH
+    const bh = ((counts[col] || 0) / max) * plotH * grow
     ctx.fillStyle = css(laneVar(col, lanes))
     ctx.fillRect(g.x * k + 1, h - 14 - bh, g.w * k - 2, bh)
     ctx.fillStyle = css('--dim')
@@ -217,4 +224,85 @@ export function drawLanes(canvas, stats, lanes) {
     ctx.fillRect(splitX * k - 1, 0, 2, plotH)
     ctx.globalAlpha = 1
   }
+}
+
+// ── 저장용 카드 ──────────────────────────────────────────────────────────
+// 화면에 이미 그려진 캔버스를 그대로 옮겨 붙인다 — 저장 전용 렌더러를 따로 두면 두 벌이
+// 갈라진다. 대신 화면 밖이라 아직 안 그려진 차트는 부르는 쪽이 먼저 채워 두어야 한다.
+const CARD_W = 1000
+const CARD_PAD = 24
+const GAP = 14
+const INNER = CARD_W - CARD_PAD * 2
+
+function badgeRow(ctx, items, x, y) {
+  ctx.font = '12px system-ui, sans-serif'
+  for (const [text, hot] of items) {
+    const w = ctx.measureText(text).width + 18
+    ctx.beginPath()
+    ctx.roundRect(x, y, w, 22, 11)
+    ctx.fillStyle = css('--panel')
+    ctx.fill()
+    ctx.strokeStyle = css(hot ? '--accent' : '--grid')
+    ctx.stroke()
+    ctx.fillStyle = css(hot ? '--accent' : '--fg')
+    ctx.fillText(text, x + 9, y + 15)
+    x += w + 6
+  }
+}
+
+/**
+ * 요약 카드 한 장. `rows` 는 한 줄에 나란히 놓을 캔버스들 — 열 너비에 맞춰 비율대로 줄인다.
+ * 비어 있는(숨어서 0×0 인) 캔버스는 그 줄에서 빠지고, 줄이 통째로 비면 줄째로 빠진다.
+ */
+export function snapshot({ title, byline, badges, stats, rows, footer }) {
+  const live = rows.map(r => r.filter(c => c.width > 0 && c.height > 0)).filter(r => r.length)
+  const dims = live.map(r => {
+    const w = (INNER - GAP * (r.length + 1)) / r.length
+    return { w, h: Math.max(...r.map(c => (w * c.height) / c.width)) }
+  })
+  const statH = Math.ceil(stats.length / 2) * 20
+  const H = CARD_PAD * 2 + 78 + dims.reduce((s, d) => s + d.h + GAP * 3, 0) + statH + GAP + 20
+
+  const { canvas, ctx } = offscreen(CARD_W, H, 2)
+  ctx.fillStyle = css('--bg')
+  ctx.fillRect(0, 0, CARD_W, H)
+
+  let y = CARD_PAD
+  ctx.fillStyle = css('--fg')
+  ctx.font = '600 22px system-ui, sans-serif'
+  ctx.fillText(title, CARD_PAD, y + 22)
+  y += 30
+  ctx.fillStyle = css('--dim')
+  ctx.font = '12px system-ui, sans-serif'
+  ctx.fillText(byline, CARD_PAD, y + 12)
+  y += 18
+  badgeRow(ctx, badges, CARD_PAD, y)
+  y += 30
+
+  live.forEach((r, i) => {
+    const { w, h } = dims[i]
+    ctx.fillStyle = css('--panel')
+    ctx.beginPath()
+    ctx.roundRect(CARD_PAD, y, INNER, h + GAP * 2, 10)
+    ctx.fill()
+    r.forEach((c, j) =>
+      ctx.drawImage(c, CARD_PAD + GAP + j * (w + GAP), y + GAP, w, (w * c.height) / c.width))
+    y += h + GAP * 3
+  })
+
+  // 통계는 두 열. 화면의 <dl> 과 같은 순서라 눈으로 대조된다.
+  ctx.font = '12px system-ui, sans-serif'
+  stats.forEach(([k, v], i) => {
+    const x = CARD_PAD + (i % 2) * (INNER / 2)
+    const ty = y + Math.floor(i / 2) * 20 + 12
+    ctx.fillStyle = css('--dim')
+    ctx.fillText(k, x, ty)
+    ctx.fillStyle = css('--fg')
+    ctx.fillText(v, x + 78, ty)
+  })
+
+  ctx.fillStyle = css('--dim')
+  ctx.font = '11px system-ui, sans-serif'
+  ctx.fillText(footer, CARD_PAD, y + statH + GAP + 12)
+  return canvas
 }

@@ -149,6 +149,24 @@ dt { color: var(--dim); font-size: 12px; }
 dd { margin: 0; font-variant-numeric: tabular-nums; }
 dd small { color: var(--dim); font-weight: 400; }
 
+/* 결과가 뜨는 순간엔 첫 화면만 보인다. 그래서 결과 전체는 로드 때 한 번 올라오고,
+   패널 하나하나는 스크롤에 물려서(view()) 화면에 들어올 때 각자 올라온다.
+   animation-timeline 을 모르는 브라우저는 그 두 줄만 무시하고 로드 때 한 번 재생한다 —
+   `both` 라서 어느 쪽이든 끝 상태는 같다. 순서 주의: animation 단축이 뒤 두 줄을 리셋한다. */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+#error:not([hidden]),
+main:not([hidden]) { animation: rise .32s ease-out; }
+main:not([hidden]) > * {
+  animation: rise .32s ease-out both;
+  animation-timeline: view();
+  animation-range: entry 0% cover 18%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
 a { color: var(--accent); }
 
 footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--grid); }
