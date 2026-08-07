@@ -401,7 +401,8 @@ async function loadSavedCharts() {
     for (const chart of savedCharts) {
       const option = document.createElement('option')
       option.value = chart.id
-      option.textContent = [chart.title || chart.filename, chart.artist].filter(Boolean).join(' — ')
+      option.textContent = [chart.title || chart.filename, chart.artist].filter(Boolean).join(' — ') +
+        (chart.filename.includes('/') ? ` (${chart.filename})` : '')
       select.append(option)
     }
     $('saved').hidden = false
@@ -416,7 +417,7 @@ $('load-saved').addEventListener('click', async () => {
   try {
     const res = await fetch(`/api/charts/${encodeURIComponent(chart.id)}`)
     if (!res.ok) throw new Error('저장된 채보를 가져오지 못했습니다')
-    await open(new File([await res.blob()], chart.filename))
+    await open(new File([await res.blob()], chart.filename.split('/').pop()))
   } catch (error) {
     $('error').textContent = `${chart.filename} — ${error.message}`
     $('error').hidden = false

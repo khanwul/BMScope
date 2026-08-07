@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
+import { fileURLToPath } from 'node:url'
 import { createHandler } from '../server.js'
+import { collectCharts } from '../scripts/import-chart.js'
 
 const chart = Buffer.from('#TITLE DB Demo\n#BPM 120\n#00111:01')
 const pool = {
@@ -36,4 +38,7 @@ assert.deepEqual(file.body, chart)
 assert.equal((await request('/api/charts/0')).status, 404)
 assert.equal((await request('/server.js')).status, 404, '서버 소스가 정적 공개되면 안 된다')
 
-console.log('ok — 저장 채보 API (목록 · 원문 · 경로 제한)')
+const fixtures = await collectCharts(fileURLToPath(new URL('fixtures', import.meta.url)))
+assert.deepEqual(fixtures.map(file => file.name), ['dp14k.bms', 'pms9k.pms', 'sp7k.bms'])
+
+console.log('ok — 저장 채보 API (목록 · 원문 · 경로 제한 · 폴더 수집)')
