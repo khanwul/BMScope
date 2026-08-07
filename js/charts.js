@@ -59,9 +59,9 @@ function line(ctx, bars, valueOf, toY, x0, bw, color, { dash = [], step = false 
 /**
  * 밀도 그래프. 마디 버킷과 시간 버킷이 같은 형태라 렌더러 하나로 둘 다 그린다.
  *   쌓은 막대 = 종류별 노트 수 · 실선 = 순간 최대 밀도(1초 창) · 파선 = BPM
- * `tick(i)` 이 x축 라벨을 만든다. `grow` 0–1 은 등장 애니메이션용 세로 배율.
+ * `tick(i)` 이 x축 라벨을 만든다.
  */
-export function drawDensity(canvas, bars, { tick = i => i, grow = 1 } = {}) {
+export function drawDensity(canvas, bars, { tick = i => i } = {}) {
   const box = fit(canvas)
   if (!box || !bars.length) return
   const { ctx, w, h } = box
@@ -94,12 +94,6 @@ export function drawDensity(canvas, bars, { tick = i => i, grow = 1 } = {}) {
     ctx.fillText(Math.round((maxNotes * i) / 4), pad.l - 5, y + 3)
   }
 
-  // 막대와 두 선은 바닥 기준으로 눌러서 자라게 한다 — 격자·축·범례는 처음부터 제자리.
-  ctx.save()
-  ctx.translate(0, bottom)
-  ctx.scale(1, grow)
-  ctx.translate(0, -bottom)
-
   // 종류별 누적 막대
   const barW = Math.max(bw - 0.5, 0.8)
   for (const b of bars) {
@@ -119,7 +113,6 @@ export function drawDensity(canvas, bars, { tick = i => i, grow = 1 } = {}) {
   line(ctx, bars, b => b.bpm,
     v => bottom - ((v - bpmLo) / bpmSpan) * plotH * 0.84 - plotH * 0.08,
     pad.l, bw, cBpm, { dash: [4, 3], step: true })
-  ctx.restore()
 
   // 범례 겸 축 — 선마다 우측 축을 세우면 라벨이 겹친다
   ctx.textAlign = 'left'
@@ -144,7 +137,7 @@ export function drawDensity(canvas, bars, { tick = i => i, grow = 1 } = {}) {
 }
 
 /** 6축 레이더. 축 순서가 곧 육각형의 꼭짓점 순서(12시부터 시계방향). */
-export function drawRadar(canvas, axes, grow = 1) {
+export function drawRadar(canvas, axes) {
   const box = fit(canvas)
   if (!box) return
   const { ctx, w, h } = box
@@ -171,7 +164,7 @@ export function drawRadar(canvas, axes, grow = 1) {
   // 값 다각형
   const accent = css('--accent')
   ctx.beginPath()
-  axes.forEach((a, i) => ctx[i ? 'lineTo' : 'moveTo'](...pt(i, (R * a.value * grow) / 100)))
+  axes.forEach((a, i) => ctx[i ? 'lineTo' : 'moveTo'](...pt(i, (R * a.value) / 100)))
   ctx.closePath()
   ctx.fillStyle = accent
   ctx.globalAlpha = 0.22
@@ -199,7 +192,7 @@ export function drawRadar(canvas, axes, grow = 1) {
 /** 레인별 노트 분포 막대. */
 // 막대 순서·색·폭을 재생기와 맞춘다 — 두 그림을 눈으로 대조하려면 같은 배치여야 한다.
 // 스크래치가 왼쪽 끝(DP 는 오른쪽에도), 흰/파란 건반이 번갈아, 스크래치 레인이 더 넓다.
-export function drawLanes(canvas, stats, lanes, grow = 1) {
+export function drawLanes(canvas, stats, lanes) {
   const box = fit(canvas)
   if (!box) return
   const { ctx, w, h } = box
@@ -212,7 +205,7 @@ export function drawLanes(canvas, stats, lanes, grow = 1) {
   ctx.textAlign = 'center'
 
   for (const [col, g] of geom) {
-    const bh = ((counts[col] || 0) / max) * plotH * grow
+    const bh = ((counts[col] || 0) / max) * plotH
     ctx.fillStyle = css(laneVar(col, lanes))
     ctx.fillRect(g.x * k + 1, h - 14 - bh, g.w * k - 2, bh)
     ctx.fillStyle = css('--dim')

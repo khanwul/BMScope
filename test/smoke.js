@@ -13,6 +13,14 @@ const IDS = new Set([...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]))
 const HIDDEN = new Set(
   [...html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)].filter(m => /\shidden[\s>]/.test(m[0])).map(m => m[1]))
 
+// 클래스 선택자도 index.html 에서 실제로 찾는다 — id 와 같은 오타 검출을 받으려면
+// 스텁이 표를 들고 있으면 안 된다. (id 없는 라디오만 아래 controls 표로 흉내낸다.)
+const TAGS = [...html.matchAll(/<[^>]+>/g)].map(m => m[0])
+const idsWithClass = name =>
+  TAGS.filter(t => new RegExp(`class="[^"]*\\b${name}\\b`).test(t))
+    .map(t => t.match(/\bid="([^"]+)"/)?.[1])
+    .filter(Boolean)
+
 const noop = () => {}
 const ctx2d = () => new Proxy({}, {
   get: (t, k) => {
@@ -71,7 +79,8 @@ let lastCreated = null
 globalThis.document = {
   documentElement: {},
   getElementById: id => (IDS.has(id) ? cache.get(id) : (missing.push(id), null)),
-  querySelectorAll: selector => controls[selector] || [],
+  querySelectorAll: selector =>
+    controls[selector] || (selector.startsWith('.') ? idsWithClass(selector.slice(1)).map(id => cache.get(id)) : []),
   createElement: () => (lastCreated = el('offscreen')),
 }
 globalThis.URL.createObjectURL = () => 'blob:x'
@@ -83,16 +92,6 @@ const windowListeners = new Map()
 globalThis.addEventListener = (type, fn) => windowListeners.set(type, fn)
 globalThis.requestAnimationFrame = noop
 globalThis.cancelAnimationFrame = noop
-// 헤드리스에는 모션이 없다. reduce 로 답하면 차트가 rAF 없이 최종 상태로 한 번에 그려진다.
-globalThis.matchMedia = () => ({ matches: true })
-// 스텁 뷰포트에는 스크롤이 없다 — 관찰하는 즉시 보이는 것으로 친다. 이게 있어야
-// 등장 애니메이션 경로를 타고도 차트가 실제로 그려지는지 검사된다.
-globalThis.IntersectionObserver = class {
-  constructor(cb) { this.cb = cb }
-  observe(target) { this.cb([{ target, isIntersecting: true }], this) }
-  unobserve() {}
-  disconnect() {}
-}
 globalThis.AudioContext = class {
   currentTime = 0; sampleRate = 44100; destination = {}
   createBuffer(_ch, n) { return { getChannelData: () => new Float32Array(n) } }

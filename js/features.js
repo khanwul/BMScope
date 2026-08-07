@@ -138,7 +138,7 @@ function windowFeatures(ctx, b0, b1, t0, t1) {
 
   if (rc.length) {
     const bins = new Array(6).fill(0)
-    rc.forEach((cols, i) => { for (let k = 0; k < cols.length; k++) bins[snapBin(snapClass(rb[i]))]++ })
+    rc.forEach((cols, i) => { bins[snapBin(snapClass(rb[i]))] += cols.length })
     f.snap_entropy = entropy(bins)
   }
 
@@ -221,7 +221,7 @@ function windowFeatures(ctx, b0, b1, t0, t1) {
  * lanes(js/lanes.js 산출) + timing → 윈도우 피처.
  * 반환: { beat0, beat1, t0, t1, X: number[][], names }
  */
-export function extract(lanes, timing, { winBeats = WIN_BEATS, hopBeats = HOP_BEATS } = {}) {
+export function extract(lanes, timing) {
   const scratch = new Set(lanes.scratchCols)
   const kb = lanes.notes
     .filter(n => !scratch.has(n.col))
@@ -239,12 +239,12 @@ export function extract(lanes, timing, { winBeats = WIN_BEATS, hopBeats = HOP_BE
   }
 
   const total = lanes.totalBeats
-  const stop = Math.max(total - winBeats * 0.5, hopBeats)
+  const stop = Math.max(total - WIN_BEATS * 0.5, HOP_BEATS)
   const beat0 = [], beat1 = [], t0a = [], t1a = [], X = []
-  for (let i = 0, n = Math.ceil(stop / hopBeats); i < n; i++) {
-    const b0 = i * hopBeats
-    const b1 = Math.min(b0 + winBeats, total)
-    if (b1 - b0 < winBeats * 0.5) continue
+  for (let i = 0, n = Math.ceil(stop / HOP_BEATS); i < n; i++) {
+    const b0 = i * HOP_BEATS
+    const b1 = Math.min(b0 + WIN_BEATS, total)
+    if (b1 - b0 < WIN_BEATS * 0.5) continue
     const t0 = timing.beatToSeconds(b0)
     const t1 = timing.beatToSeconds(b1)
     X.push(windowFeatures(ctx, b0, b1, t0, t1))

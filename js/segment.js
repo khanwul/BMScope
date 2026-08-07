@@ -89,9 +89,9 @@ export function boundaries(wf, penMult = PEN_MULT) {
  * 경계 → `[a, b)` 윈도우 인덱스 구간. `MIN_WIN` 미만인 조각은 이웃에 붙이지 않고 **버린다**
  * (bmspc 와 같은 동작이라 구간이 곡 전체를 덮지 않을 수 있다).
  */
-export function segments(wf, penMult = PEN_MULT) {
+export function segments(wf) {
   if (wf.X.length < 5) return []
-  const edges = [0, ...boundaries(wf, penMult), wf.X.length]
+  const edges = [0, ...boundaries(wf), wf.X.length]
   const segs = []
   for (let i = 0; i < edges.length - 1; i++)
     if (edges[i + 1] - edges[i] >= MIN_WIN) segs.push([edges[i], edges[i + 1]])

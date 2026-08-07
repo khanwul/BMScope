@@ -10,6 +10,8 @@ import { createOverview, createPlayView, HISPEED_1X } from './preview.js'
 import { createPlayer } from './player.js'
 
 const $ = id => document.getElementById(id)
+// 두 탭에 같은 노브가 하나씩 있다. 값은 하나이므로 클래스로 한꺼번에 잡는다.
+const $$ = selector => document.querySelectorAll(selector)
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 const r1 = n => n.toFixed(1)
 
@@ -88,13 +90,10 @@ function setHispeed(v) {
   playView.setHispeed(v)
   overview.setHispeed(v)
   const label = (v / HISPEED_1X).toFixed(2) + '×'
-  for (const prefix of ['', 'overview-']) {
-    $(prefix + 'hispeed').value = v
-    $(prefix + 'hispeed-v').textContent = label
-  }
+  for (const el of $$('.hispeed')) el.value = v
+  for (const el of $$('.hispeed-v')) el.textContent = label
 }
-for (const id of ['hispeed', 'overview-hispeed'])
-  $(id).addEventListener('input', e => setHispeed(+e.target.value))
+for (const el of $$('.hispeed')) el.addEventListener('input', e => setHispeed(+e.target.value))
 $('rate').addEventListener('input', e => {
   const v = +e.target.value / 100
   player.setRate(v)
@@ -109,14 +108,12 @@ function loadPlayerViews(notes) {
   player.load({ ...view, duration: stats.duration })
 }
 
-const laneInputIds = ['lane-order', 'overview-lane-order']
-
-function applyLaneOrder(spec, input = $('lane-order')) {
+function applyLaneOrder(spec, input = $$('.lane-order')[0]) {
   try {
     const notes = remapLanes(current.lanes.notes, current.lanes, spec)
-    for (const id of laneInputIds) {
-      $(id).setCustomValidity('')
-      $(id).value = spec.replace(/\s/g, '')
+    for (const el of $$('.lane-order')) {
+      el.setCustomValidity('')
+      el.value = spec.replace(/\s/g, '')
     }
     const time = player.now(), wasPlaying = player.playing(), range = timeline.getRange()
     loadPlayerViews(notes)
@@ -133,15 +130,15 @@ function applyLaneOrder(spec, input = $('lane-order')) {
   }
 }
 
-for (const id of laneInputIds) {
-  $(id).addEventListener('input', e => e.currentTarget.setCustomValidity(''))
-  $(id).addEventListener('change', e => applyLaneOrder(e.currentTarget.value, e.currentTarget))
-  $(id).addEventListener('keydown', e => {
+for (const el of $$('.lane-order')) {
+  el.addEventListener('input', e => e.currentTarget.setCustomValidity(''))
+  el.addEventListener('change', e => applyLaneOrder(e.currentTarget.value, e.currentTarget))
+  el.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
   })
 }
-for (const id of ['lane-random', 'overview-lane-random'])
-  $(id).addEventListener('click', () => applyLaneOrder(randomLaneSpec(current.lanes)))
+for (const el of $$('.lane-random'))
+  el.addEventListener('click', () => applyLaneOrder(randomLaneSpec(current.lanes)))
 
 function selectSegment(seg) {
   if (seg) timeline.setRange({ a: seg.t0, b: seg.t1 })
@@ -164,13 +161,15 @@ addEventListener('keydown', e => {
   selectSegment(ordered.find(s => dir > 0 ? s.t0 > cursor + 1e-3 : s.t0 < cursor - 1e-3))
 })
 
-document.querySelectorAll('input[name=mode]').forEach(r =>
+$$('input[name=mode]').forEach(r =>
   r.addEventListener('change', e => {
     mode = e.target.value
     const play = mode === 'play'
     $('overview-view').hidden = play
     $('play-view').hidden = !play
+    // 켜지는 쪽 캔버스는 방금까지 0×0 이라 안 그려졌다 — 여기서 채운다.
     // 재생은 모드와 무관하다 — 전체 보기로 넘어와도 그대로 흐른다.
+    redraw()
     syncTransport()
     setCursor(cursor)
   }))
@@ -195,9 +194,9 @@ async function show(file, random = 1) {
   loadPlayerViews(lanes.notes)
   const spec = laneSpec(lanes)
   const laneTitle = lanes.scratchCols.length === 2 ? '1P/2P 순서 (예: 54321/12345)' : '레인 순서 (예: 54321)'
-  for (const id of laneInputIds) {
-    $(id).value = spec
-    $(id).title = laneTitle
+  for (const el of $$('.lane-order')) {
+    el.value = spec
+    el.title = laneTitle
   }
   syncTransport()
 
@@ -245,7 +244,7 @@ async function show(file, random = 1) {
     ? `경고 ${parsed.warnings.length}건: ${parsed.warnings.slice(0, 3).map(w => `${w.lineNumber}행 ${w.message}`).join(' / ')}`
     : ''
 
-  redraw(true)
+  redraw()
 }
 
 function showRange() {
@@ -260,57 +259,21 @@ $('clear-range').addEventListener('click', () => timeline.clearRange())
 // 마디별 / 시간별. 밀도 그래프의 x축과 구간 목록의 범위 표기에 함께 적용된다.
 let axis = 'measures'
 
-// 차트 셋은 따로 뗀다 — 캔버스는 CSS 로 못 물리니 등장 애니메이션을 직접 돌려야 하고,
-// 화면에 들어온 것만 자라야 하므로 하나씩 부를 수 있어야 한다.
-// (타임라인·전체 보기는 노트를 전부 훑으므로 여기 끼면 프레임이 무너진다.)
-const chartDraw = {
-  density: g => {
-    const bars = current.stats.density[axis]
-    const tick = axis === 'measures' ? i => i : i => mmss(bars[i].startTime)
-    drawDensity($('density'), bars, { tick, grow: g })
-  },
-  radar: g => drawRadar($('radar'), current.radar, g),
-  lanes: g => drawLanes($('lanes'), current.stats, current.lanes, g),
-}
-const drawCharts = () => { for (const id in chartDraw) chartDraw[id](1) }
-
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)')
-const chartRaf = {}
-
-function growChart(id) {
-  cancelAnimationFrame(chartRaf[id])
-  if (reduceMotion.matches) return chartDraw[id](1)
-  const t0 = performance.now()
-  const step = now => {
-    const p = Math.min(1, (now - t0) / 450)
-    chartDraw[id](1 - (1 - p) ** 3) // easeOutCubic
-    if (p < 1) chartRaf[id] = requestAnimationFrame(step)
-  }
-  chartRaf[id] = requestAnimationFrame(step)
+// 숨은 탭의 캔버스는 0×0 이라 그려지지 않는다 — 탭을 켤 때 redraw 가 다시 돈다.
+function drawCharts() {
+  const bars = current.stats.density[axis]
+  const tick = axis === 'measures' ? i => i : i => mmss(bars[i].startTime)
+  drawDensity($('density'), bars, { tick })
+  drawRadar($('radar'), current.radar)
+  drawLanes($('lanes'), current.stats, current.lanes)
 }
 
-// 페이지가 길다 — 로드 때 셋 다 돌리면 접힌 화면 아래 차트는 다 놓친다. 화면에 들어올 때 시작.
-const reveal = new IntersectionObserver((entries, obs) => {
-  for (const { target, isIntersecting } of entries) {
-    if (!isIntersecting) continue
-    obs.unobserve(target) // 등장은 한 번뿐. 스크롤 오갈 때마다 다시 자라면 산만하다.
-    growChart(target.id)
-  }
-}, { threshold: 0.25 })
-
-function armCharts() {
-  reveal.disconnect()
-  for (const id in chartDraw) reveal.observe($(id))
-}
-
-// `animate` 는 새 채보를 띄울 때만. 리사이즈·축 전환은 즉시 그린다 — 조작할 때마다
-// 차트가 다시 자라면 값을 비교할 수가 없다.
-function redraw(animate = false) {
+function redraw() {
   if (!current) return
   const { lanes, segs } = current
   const byMeasure = axis === 'measures'
 
-  animate ? armCharts() : drawCharts()
+  drawCharts()
   timeline.draw()
   ;(mode === 'play' ? playView : overview).draw()
 
@@ -340,7 +303,6 @@ $('reroll').addEventListener('click', () => {
 // 이미지 저장 — 화면에 그려진 캔버스를 그대로 카드 한 장으로 굽는다.
 $('save-image').addEventListener('click', async () => {
   if (!current) return
-  drawCharts() // 스크롤이 안 닿아 아직 안 그려진 차트가 있으면 여기서 채운다
   const canvas = snapshot({
     title: $('title').textContent,
     byline: $('byline').textContent,
@@ -382,16 +344,16 @@ $('copy-analysis').addEventListener('click', async e => {
   setTimeout(() => { e.currentTarget.textContent = label }, 1200)
 })
 
-document.querySelectorAll('.axis-control').forEach(r =>
+$$('.axis-control').forEach(r =>
   r.addEventListener('change', e => {
     axis = e.target.value
-    document.querySelectorAll('.axis-control').forEach(x => { x.checked = x.value === axis })
+    $$('.axis-control').forEach(x => { x.checked = x.value === axis })
     redraw()
   }))
 
 // 구간 방식을 바꾸면 태그 밴드·오버레이·목록이 전부 갈리므로 다시 계산해 셋 다 갱신한다.
 // 선택해 둔 재생 구간은 건드리지 않는다 — 경계가 조금 달라져도 사용자가 고른 범위는 유지.
-document.querySelectorAll('input[name=segmode]').forEach(r =>
+$$('input[name=segmode]').forEach(r =>
   r.addEventListener('change', e => {
     segMode = e.target.value
     if (!current) return
@@ -402,15 +364,14 @@ document.querySelectorAll('input[name=segmode]').forEach(r =>
     redraw()
   }))
 
-// 이벤트 객체가 `animate` 로 새면 리사이즈마다 차트가 다시 자란다.
-addEventListener('resize', () => redraw())
+addEventListener('resize', redraw)
 
 // 파일 진입점. 두 경로(선택·드롭)가 여기로 모이므로 파싱 실패도 여기서만 잡는다.
 function open(file, random = 1) {
   if (!file) return
   currentFile = file
   $('error').hidden = true
-  // display 를 껐다 켜야 등장 애니메이션이 다시 돈다 — 다시 뽑기·브랜치 변경도 새 결과다.
+  // 파싱이 실패하면 앞 채보의 결과가 남아 있으면 안 된다 — 먼저 감추고 성공할 때만 켠다.
   $('result').hidden = true
   return show(file, random).catch(e => {
     current = null

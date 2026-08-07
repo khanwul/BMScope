@@ -97,7 +97,7 @@ export function laneGeom(lanes, scale = 1) {
   }
   // DP 는 1P/2P 경계에 구분선을 긋는다. 스크래치가 둘이면 DP — 2P 건반은 keyCols 의 뒤 절반.
   const splitX = lanes.scratchCols.length === 2 ? geom.get(lanes.keyCols / 2)?.x ?? null : null
-  return { geom, width: x, scratch, splitX }
+  return { geom, width: x, splitX }
 }
 
 // 색은 컬럼 번호가 아니라 라벨(=플레이어별 1…7) 기준 — DP 2P 도 1번이 흰건반으로 시작한다.
