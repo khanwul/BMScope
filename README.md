@@ -1,7 +1,7 @@
 # BMScope
 
 BMS 채보 파일을 브라우저에서 파싱해 **분석 · 시각화 · 재생**하는 사이트.
-직접 연 파일은 업로드하지 않으며, Render PostgreSQL에 미리 저장한 채보도 불러올 수 있다.
+직접 연 파일은 업로드하지 않으며, IR 조회에도 파일 대신 해시만 사용한다. Render PostgreSQL에 미리 저장한 채보도 불러올 수 있다.
 
 **→ https://khanwul.github.io/BMScope/**
 
@@ -16,6 +16,7 @@ BMS 채보 파일을 브라우저에서 파싱해 **분석 · 시각화 · 재�
 - **타임라인 구간 선택** — 끌어서 A–B 지정, 그 구간만 반복 재생.
 - **빠른 탐색·내보내기** — 구간 목록 클릭, 키보드 이동, 분석 JSON 복사, `#RANDOM` 분기 선택.
 - **통계 · 레인별 분포**, 인코딩 자동 판별(UTF-8 → Shift_JIS → EUC-KR).
+- **IR 연동** — BMS-IR의 LR2 실전 통계·주간 인기와 Bokutachi 난이도표·개인 PB·최근 성과·연습 후보를 조회하고, STELLAVERSE IR로 바로 이동한다.
 
 ## 실행
 
@@ -54,6 +55,7 @@ npm i && npm run build:vendor    # bms-js 버전 올릴 때만
 
 ## 한계
 
+- BMS-IR 상세 통계는 공개 페이지의 요약을 서버에서 읽으므로 Node/Render 배포에서 제공된다. 정적 GitHub Pages에서는 BMS-IR 링크와 브라우저에서 직접 조회하는 Bokutachi 기능만 동작한다.
 - 지뢰(`D1–E9`)는 파싱·통계·렌더·재생 어디에도 없다. bmspc도 무시하므로 분석 결과와 일관된다.
 - `#RANDOM`은 분기 선택·재추첨을 지원한다. `#SETRANDOM`/`#SWITCH`는 배지와 파서 경고만 표시한다.
 - 패턴 태그 임계값은 7K 기준 튜닝 값. DP/PMS는 원본과 마찬가지로 best-effort.

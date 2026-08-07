@@ -1,4 +1,5 @@
 import { compile, Timing, Positioning, SongInfo } from './vendor/bms.js'
+import { hashes } from './ir.js'
 
 // UTF-8 로 먼저 엄격 디코드하고, 대체문자(U+FFFD)가 섞이면 Shift_JIS → EUC-KR 순으로 재시도.
 // 순서가 중요하다: Shift_JIS 로 UTF-8 바이트를 읽으면 U+FFFD 없이 조용히 깨진다.
@@ -40,6 +41,7 @@ export function parse(text, { name = '', random = 1 } = {}) {
 }
 
 export async function loadFile(file, options) {
-  const { text, encoding } = decode(await file.arrayBuffer())
-  return { ...parse(text, { name: file.name, ...options }), encoding }
+  const buffer = await file.arrayBuffer()
+  const [{ text, encoding }, checksum] = await Promise.all([decode(buffer), hashes(buffer)])
+  return { ...parse(text, { name: file.name, ...options }), encoding, hashes: checksum }
 }

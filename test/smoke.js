@@ -136,6 +136,7 @@ assert.equal(cache.get('title').textContent, 'BMScope Demo')
 assert.match(cache.get('stats').innerHTML, /<dt>노트<\/dt>/)
 assert.match(cache.get('segments').innerHTML, /class="tag tag-/)
 assert.match(cache.get('badges').innerHTML, /7K/)
+assert.match(cache.get('bmsir-link').href, /songmd5=0d98fe8171ebfb82310d89ffc0320dfa/, '원본 MD5로 IR 링크를 만들지 않는다')
 
 // 상단 탭은 분석과 재생 묶음 전체를 바꾸고, 돌아와도 같은 커서를 유지한다.
 listeners.get('mode:play:change')({ target: controls['input[name=mode]'][1] })

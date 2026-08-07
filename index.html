@@ -94,6 +94,43 @@
             <canvas id="lanes"></canvas>
           </div>
         </section>
+
+        <section class="panel" id="ir">
+          <h3>IR · 실전 데이터 <span class="dim">파일 해시로 조회 · 점수는 전송하지 않음</span></h3>
+          <div id="ir-tools">
+            <nav id="ir-links" aria-label="외부 IR">
+              <a id="bmsir-link" target="_blank" rel="noopener">BMS-IR (LR2)</a>
+              <a id="stellaverse-link" href="https://ir.stellabms.xyz/" target="_blank" rel="noopener">STELLAVERSE IR</a>
+              <a id="bokutachi-link" target="_blank" rel="noopener" hidden>Bokutachi</a>
+            </nav>
+            <label>Bokutachi 사용자
+              <input id="ir-user" type="text" maxlength="50" autocomplete="username" placeholder="선택 사항">
+            </label>
+            <button id="load-ir-user" type="button">내 기록</button>
+          </div>
+          <p id="ir-status" class="dim">조회 중…</p>
+          <div id="ir-content" class="ir-cols" hidden>
+            <div>
+              <h4>커뮤니티</h4>
+              <dl id="ir-stats"></dl>
+              <div id="ir-lamps"></div>
+              <p id="ir-random" class="dim"></p>
+            </div>
+            <div>
+              <h4>내 기록 · 최근 성과</h4>
+              <div id="ir-personal" class="dim">사용자명을 입력하면 표시합니다.</div>
+              <ol id="ir-recent"></ol>
+            </div>
+            <div>
+              <h4>연습 후보 <span id="ir-focus" class="dim"></span></h4>
+              <ol id="ir-recommend"></ol>
+            </div>
+            <div>
+              <h4>BMS-IR 주간 인기</h4>
+              <ol id="ir-popular"></ol>
+            </div>
+          </div>
+        </section>
       </div>
 
       <div id="play-view" class="view" hidden>

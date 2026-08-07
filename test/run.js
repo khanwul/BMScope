@@ -9,11 +9,34 @@ import { extract, trillRatio, FEATURE_NAMES } from '../js/features.js'
 import { boundaries, segments, SEG_FEATURES } from '../js/segment.js'
 import { classify, refine, tagSegments } from '../js/tagger.js'
 import { createPlayer } from '../js/player.js'
+import { hashes, md5, recommend, summarizePBs } from '../js/ir.js'
 
 const run = (text, name = 'x.bms') => {
   const parsed = parse(text, { name })
   const lanes = toLanes(parsed)
   return { parsed, lanes, stats: analyze(parsed, lanes) }
+}
+
+// ── IR 식별·요약 ───────────────────────────────────────────────────────────
+{
+  const bytes = s => new TextEncoder().encode(s).buffer
+  assert.equal(md5(bytes('')), 'd41d8cd98f00b204e9800998ecf8427e')
+  assert.equal(md5(bytes('abc')), '900150983cd24fb0d6963f7d28e17f72')
+  assert.deepEqual(await hashes(bytes('abc')), {
+    md5: '900150983cd24fb0d6963f7d28e17f72',
+    sha256: 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+  })
+  const pbs = [
+    { rankingData: { outOf: 9 }, scoreData: { lamp: 'HARD CLEAR', percent: 90, score: 1800, optional: { bp: 2 } } },
+    { rankingData: { outOf: 9 }, scoreData: { lamp: 'EASY CLEAR', percent: 70, score: 1400, optional: { bp: 8 } } },
+  ]
+  assert.deepEqual(summarizePBs(pbs), {
+    players: 9, sample: 2, average: 80, top: 1800, minBp: 2,
+    lamps: { 'HARD CLEAR': 1, 'EASY CLEAR': 1 },
+  })
+  const chart = (id, n) => ({ chartID: id, game: 'bms-7k', song: { title: id, artist: 'a' }, data: { aiLevel: `★${n}` } })
+  assert.deepEqual(recommend(chart('now', 10), [chart('hard', 11), chart('same', 10), chart('easy', 8)], []).map(x => x.title),
+    ['same', 'easy'], '현재보다 같거나 두 단계 낮은 인기 채보만 추천')
 }
 
 // ── 7K: 노트 · LN · 스크래치 · BPM 변화 · STOP · 마디 집계 ────────────────────

@@ -8,17 +8,20 @@ import { refine, tagSegments } from './tagger.js'
 import { createTimeline } from './timeline.js'
 import { createOverview, createPlayView, HISPEED_1X } from './preview.js'
 import { createPlayer } from './player.js'
+import { loadTachi } from './ir.js'
 
 const $ = id => document.getElementById(id)
 // 두 탭에 같은 노브가 하나씩 있다. 값은 하나이므로 클래스로 한꺼번에 잡는다.
 const $$ = selector => document.querySelectorAll(selector)
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 const r1 = n => n.toFixed(1)
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 
 let current = null
 let currentFile = null
 let cursor = 0
 const savedCharts = new Map()
+let irRequest = 0
 
 // 구간 나누기 방식. 'texture' = bmspc 기본(밀도·반복 변화만), 'fine' = 그 안에서 태그가
 // 2박 넘게 바뀌는 지점까지 추가로 자름. 세분화가 기본 — 구간 선택이 주 기능이라서.
@@ -124,6 +127,7 @@ function applyLaneOrder(spec, input = $$('.lane-order')[0]) {
     setCursor(time)
     if (wasPlaying) player.play(time)
     syncTransport()
+    renderIrRandom()
   } catch (error) {
     input.setCustomValidity(error.message)
     input.reportValidity()
@@ -183,7 +187,7 @@ async function show(file, random = 1) {
   const stats = analyze(parsed, lanes)
   // ponytail: 메인 스레드 동기 실행. 로드 시 1회뿐이라 허용 — 체감 렉이 생기면 Web Worker 로.
   const wf = extract(lanes, parsed.timing)
-  current = { parsed, lanes, stats, wf, segs: cutSegments(wf), radar: radar(wf) }
+  current = { parsed, lanes, stats, wf, segs: cutSegments(wf), radar: radar(wf), ir: null }
 
   // 렌더러보다 먼저 패널을 띄운다 — 숨어 있는 동안은 캔버스가 0×0 이라 레이아웃 계산이 깨진다.
   $('result').hidden = false
@@ -245,7 +249,139 @@ async function show(file, random = 1) {
     : ''
 
   redraw()
+  loadIrData()
 }
+
+// ── 외부 IR ─────────────────────────────────────────────────────────────
+const bmsIrUrl = md5 => `https://bms-ir.org/new/song?songmd5=${md5}&client_view=lr2`
+
+function renderIrRandom() {
+  if (!current) return
+  const option = current.ir?.bmsir?.song?.topOption
+  const lane = $$('.lane-order')[0].value
+  const recorded = option?.match(/\b([1-7]{7})\b/)?.[1]
+  $('ir-random').textContent = option
+    ? `현재 레인 ${lane} · BMS-IR 선두 OP ${option}${recorded ? ` · ${lane === recorded ? '같은 배치' : '다른 배치'}` : ' · seed는 구동기별 해석'}`
+    : `현재 레인 ${lane} · IR에 비교 가능한 RANDOM 배치 없음`
+}
+
+function irCardRows(data) {
+  const rows = []
+  const levels = [...new Set([
+    ...Object.entries(data.tachi?.levels || {}).map(([k, v]) => k + v),
+    ...(data.bmsir?.song?.found ? data.bmsir.song.levels : []),
+  ])]
+  if (levels.length) rows.push(['IR 난이도', levels.join(' · ')])
+  const s = data.bmsir?.song?.found ? data.bmsir.song.stats : null
+  if (+s?.players) rows.push(['BMS-IR (LR2)', `${s.players}명 · 평균 ${s.averageScore || '-'}`])
+  const pb = data.tachi?.personal
+  if (pb) rows.push(['내 PB', `${pb.scoreData.lamp} · ${pb.scoreData.percent.toFixed(2)}%`])
+  const weekly = data.bmsir?.popular?.find(x => x.md5 === current.parsed.hashes.md5)
+  if (weekly) rows.push(['주간 인기', `#${weekly.rank} · ${weekly.players}명`])
+  return rows
+}
+
+function renderIr() {
+  const data = current.ir
+  if (!data) return
+  const tachi = data.tachi
+  const bms = data.bmsir
+  const levels = [...new Set([
+    ...Object.entries(tachi?.levels || {}).map(([k, v]) => k + v),
+    ...(bms?.song?.levels || []),
+  ])]
+  const stats = []
+  if (levels.length) stats.push(['난이도표', levels.join(' · ')])
+  if (tachi?.aiLevel) stats.push(['추정 난이도', tachi.aiLevel])
+  const s = bms?.song?.found ? bms.song.stats : null
+  if (s) {
+    stats.push(['플레이', `${s.players || 0}명 · ${s.plays || 0}회`])
+    stats.push(['평균 EX', s.averageScore || '-'])
+    stats.push(['최고 EX / 최소 BP', `${s.topEx || '-'} / ${s.minBp || '-'}`])
+    if (+s.players && Number.isFinite(+s.clears)) stats.push(['클리어율', `${((+s.clears / +s.players) * 100).toFixed(1)}%`])
+  } else if (tachi?.pbs?.players) {
+    stats.push(['Bokutachi', `${tachi.pbs.players}명`])
+    stats.push(['상위 표본', `${tachi.pbs.sample}명 · 평균 ${tachi.pbs.average?.toFixed(2) || '-'}%`])
+    stats.push(['최고 EX / 최소 BP', `${tachi.pbs.top ?? '-'} / ${tachi.pbs.minBp ?? '-'}`])
+  }
+  $('ir-stats').innerHTML = stats.length
+    ? stats.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')
+    : '<dt>통계</dt><dd class="dim">등록 기록 없음</dd>'
+
+  const lamps = (bms?.song?.found && bms.song.lamps.length
+    ? bms.song.lamps.map(x => ({ name: x.lamp, count: x.count, percent: x.percent })) : null) ||
+    Object.entries(tachi?.pbs?.lamps || {}).map(([name, count]) => ({ name, count, percent: count / Math.max(1, tachi.pbs.sample) * 100 }))
+  $('ir-lamps').innerHTML = lamps.length
+    ? `<div class="lamp-line" title="${esc(lamps.map(x => `${x.name} ${x.count}`).join(' · '))}">` +
+      lamps.map((x, i) => `<span style="width:${Math.max(0, Math.min(100, x.percent))}%;--lamp-i:${i}"></span>`).join('') + '</div>'
+    : ''
+
+  const pb = tachi?.personal
+  $('ir-personal').innerHTML = pb
+    ? `<strong>${esc(pb.scoreData.lamp)}</strong> · ${pb.scoreData.percent.toFixed(2)}% · EX ${pb.scoreData.score.toLocaleString()} · ` +
+      `#${pb.rankingData.rank}/${pb.rankingData.outOf}${Number.isFinite(pb.scoreData.optional?.bp) ? ` · BP ${pb.scoreData.optional.bp}` : ''}`
+    : $('ir-user').value.trim() ? '이 채보의 기록이 없습니다.' : '사용자명을 입력하면 표시합니다.'
+  $('ir-recent').innerHTML = tachi?.recent?.length
+    ? tachi.recent.map(x => `<li>${x.url ? `<a href="${x.url}" target="_blank" rel="noopener">${esc(x.title)}</a>` : esc(x.title)} ` +
+      `<span class="dim">${esc(x.level)} · ${esc(x.scoreData.lamp)} ${x.scoreData.percent.toFixed(2)}%</span></li>`).join('')
+    : ''
+
+  const tagCounts = current.segs.flatMap(x => x.tags).filter(x => !['rest', 'mix'].includes(x))
+    .reduce((m, x) => m.set(x, (m.get(x) || 0) + 1), new Map())
+  const focus = [...tagCounts].sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0])
+  $('ir-focus').textContent = focus.length ? `초점: ${focus.join(' · ')}` : ''
+  $('ir-recommend').innerHTML = tachi?.recommendations?.length
+    ? tachi.recommendations.map(x => `<li><a href="${x.url}" target="_blank" rel="noopener">${esc(x.title)}</a> ` +
+      `<span class="dim">${esc(x.level)}${x.played ? ' · 최근 플레이' : ''}</span></li>`).join('')
+    : '<li class="dim">난이도가 가까운 인기 채보 없음</li>'
+  $('ir-popular').innerHTML = bms?.popular?.slice(0, 5).map(x =>
+    `<li><a href="${bmsIrUrl(x.md5)}" target="_blank" rel="noopener">${esc(x.title)}</a> ` +
+    `<span class="dim">${x.players}명 · ${x.plays}회</span></li>`).join('') || '<li class="dim">조회 불가</li>'
+
+  $('ir-content').hidden = false
+  $('ir-status').textContent = [
+    tachi?.chart ? 'Bokutachi 연결됨' : 'Bokutachi 미등록',
+    bms?.song?.found ? 'BMS-IR (LR2) 연결됨' : 'BMS-IR (LR2) 미등록/조회 불가',
+    'STELLAVERSE IR은 외부 링크만 제공',
+  ].join(' · ')
+  if (tachi?.url) { $('bokutachi-link').href = tachi.url; $('bokutachi-link').hidden = false }
+  renderIrRandom()
+
+  const added = irCardRows(data)
+  current.card.stats = [...current.card.stats.filter(([k]) => !['IR 난이도', 'BMS-IR', 'BMS-IR (LR2)', '내 PB', '주간 인기'].includes(k)), ...added]
+  if (levels.length && !current.irBadge) {
+    current.irBadge = levels[0]
+    $('badges').innerHTML += `<span class="badge hot">${esc(levels[0])}</span>`
+    current.card.badges.push([levels[0], true])
+  }
+}
+
+async function loadIrData() {
+  if (!current) return
+  const request = ++irRequest
+  const { hashes } = current.parsed
+  $('bmsir-link').href = bmsIrUrl(hashes.md5)
+  $('bokutachi-link').hidden = true
+  $('ir-content').hidden = true
+  $('ir-status').textContent = '조회 중…'
+  const username = $('ir-user').value.trim()
+  const [tachi, bmsir] = await Promise.allSettled([
+    loadTachi({ sha256: hashes.sha256, mode: current.stats.mode, username }),
+    fetch(`/api/ir/${hashes.md5}`).then(r => r.ok ? r.json() : Promise.reject(new Error())),
+  ])
+  if (request !== irRequest || current?.parsed.hashes.md5 !== hashes.md5) return
+  current.ir = {
+    tachi: tachi.status === 'fulfilled' ? tachi.value : null,
+    bmsir: bmsir.status === 'fulfilled' ? bmsir.value : null,
+  }
+  renderIr()
+}
+
+try { $('ir-user').value = window.localStorage?.getItem('bmscope-bokutachi-user') || '' } catch {}
+$('load-ir-user').addEventListener('click', () => {
+  try { window.localStorage?.setItem('bmscope-bokutachi-user', $('ir-user').value.trim()) } catch {}
+  loadIrData()
+})
 
 function showRange() {
   const r = timeline.getRange()
@@ -323,6 +459,7 @@ $('copy-analysis').addEventListener('click', async e => {
   const { parsed, stats, radar: axes, segs } = current
   const report = {
     file: currentFile.name,
+    hashes: parsed.hashes,
     title: stats.info.title,
     artist: stats.info.artist,
     mode: stats.mode,
@@ -332,6 +469,13 @@ $('copy-analysis').addEventListener('click', async e => {
     counts: stats.counts,
     radar: Object.fromEntries(axes.map(a => [a.key, +a.value.toFixed(1)])),
     segments: segs.map(s => ({ start: s.t0, end: s.t1, tags: s.tags })),
+    ...(current.ir && { ir: {
+      levels: current.ir.tachi?.levels || {},
+      aiLevel: current.ir.tachi?.aiLevel || null,
+      community: current.ir.bmsir?.song?.found ? current.ir.bmsir.song : current.ir.tachi?.pbs || null,
+      personal: current.ir.tachi?.personal || null,
+      weeklyRank: current.ir.bmsir?.popular?.find(x => x.md5 === parsed.hashes.md5)?.rank || null,
+    } }),
     ...(parsed.randomMax > 1 && { randomBranch: parsed.randomChoice }),
   }
   const label = e.currentTarget.textContent
