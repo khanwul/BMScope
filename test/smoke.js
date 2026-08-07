@@ -97,9 +97,24 @@ globalThis.File = class {
 
 const dbChart = readFileSync(new URL('test/fixtures/sp7k.bms', root))
 const fetched = []
-globalThis.fetch = async url => (fetched.push(url), url.startsWith('/api/charts?q='))
-  ? { ok: true, json: async () => [{ id: '1', filename: 'Stellaverse/song/db.bms', title: 'DB Demo', artist: 'DB Artist' }] }
-  : { ok: url === '/api/charts/1', blob: async () => new Blob([dbChart]) }
+const nextHash = 'd'.repeat(64)
+const savedResult = [{ id: '1', filename: 'Stellaverse/song/db.bms', title: 'DB Demo', artist: 'DB Artist' }]
+const tachiResponse = body => ({ ok: true, json: async () => ({ success: true, body }) })
+globalThis.fetch = async url => {
+  fetched.push(url)
+  if (url.startsWith('/api/charts?')) return { ok: true, json: async () => savedResult }
+  if (url === '/api/charts/1') return { ok: true, blob: async () => new Blob([dbChart]) }
+  if (url.includes('/search/chart-hash')) return tachiResponse({ charts: [{
+    chartID: 'now', game: 'bms-7k', song: { title: 'Now', artist: 'A' },
+    data: { aiLevel: '★10', tableFolders: {}, hashSHA256: 'c'.repeat(64) },
+  }] })
+  if (url.endsWith('/charts/now/pbs')) return tachiResponse({ pbs: [] })
+  if (url.endsWith('/games/bms-7k/charts')) return tachiResponse({ charts: [{
+    chartID: 'next', game: 'bms-7k', song: { title: 'Next', artist: 'B' },
+    data: { aiLevel: '★9', tableFolders: {}, hashSHA256: nextHash },
+  }] })
+  return { ok: false }
+}
 
 await import(new URL('js/main.js', root))
 await new Promise(setImmediate)
@@ -148,6 +163,12 @@ assert.ok(practice, '분석 태그 기반 연습 구간이 나오지 않는다')
 listeners.get('ir-practice:click')({ target: { closest: () => ({ dataset: { irSeg: practice[1] } }) } })
 assert.equal(cache.get('play-view').hidden, false, '연습 구간 클릭이 재생 탭으로 이동하지 않는다')
 assert.equal(cache.get('clear-range').hidden, false, '연습 구간 클릭이 반복 범위를 잡지 않는다')
+assert.match(cache.get('ir-recommend').innerHTML, /data-ir-rec="0"[^>]*>Next/, '다음 채보 불러오기 버튼이 없다')
+const nextButton = { dataset: { irRec: '0' }, disabled: false }
+await listeners.get('ir-recommend:click')({ target: { closest: () => nextButton } })
+assert.ok(fetched.includes(`/api/charts?sha256=${nextHash}`), '추천 채보 SHA-256으로 저장 원본을 찾지 않는다')
+assert.equal(cache.get('overview-view').hidden, false, '다음 채보를 연 뒤 채보 전체 탭으로 이동하지 않는다')
+assert.equal(cache.get('title').textContent, 'BMScope Demo', '선택한 저장 채보를 불러오지 못했다')
 
 // 상단 탭은 세 화면 묶음 전체를 바꾸고, 돌아와도 같은 커서를 유지한다.
 listeners.get('mode:play:change')({ target: controls['input[name=mode]'][1] })

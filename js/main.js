@@ -161,6 +161,7 @@ addEventListener('keydown', e => {
 
 function setMode(next) {
   mode = next
+  for (const radio of $$('input[name=mode]')) radio.checked = radio.value === mode
   $('overview-view').hidden = mode !== 'overview'
   $('play-view').hidden = mode !== 'play'
   $('ir-view').hidden = mode !== 'ir'
@@ -365,9 +366,10 @@ function renderIr() {
       `<span class="dim">최대 ${x.peakNps.toFixed(1)} nps · 클릭해 반복 재생</span></button></li>`).join('')
     : '<li class="dim">집중 연습할 패턴 구간 없음</li>'
   $('ir-recommend').innerHTML = tachi?.recommendations?.length
-    ? tachi.recommendations.map(x => `<li><a href="${x.url}" target="_blank" rel="noopener">${esc(x.title)}</a> ` +
-      `<span class="dim">${esc(x.level)}${x.played ? ' · 최근 플레이' : ''}</span></li>`).join('')
+    ? tachi.recommendations.map((x, i) => `<li><button type="button" class="ir-load" data-ir-rec="${i}">${esc(x.title)}</button> ` +
+      `<span class="dim">${esc(x.level)}${x.played ? ' · 최근 플레이' : ''} · <a href="${x.url}" target="_blank" rel="noopener">IR</a></span></li>`).join('')
     : '<li class="dim">난이도가 가까운 인기 채보 없음</li>'
+  $('ir-recommend-status').textContent = ''
   $('ir-popular').innerHTML = bms?.popular?.slice(0, 5).map(x =>
     `<li><a href="${bmsIrUrl(x.md5)}" target="_blank" rel="noopener">${esc(x.title)}</a> ` +
     `<span class="dim">${x.players}명 · ${x.plays}회</span></li>`).join('') || '<li class="dim">조회 불가</li>'
@@ -406,9 +408,27 @@ $('ir-practice').addEventListener('click', e => {
   const segment = button && current?.segs[+button.dataset.irSeg]
   if (!segment) return
   selectSegment(segment)
-  for (const radio of $$('input[name=mode]')) radio.checked = radio.value === 'play'
   setMode('play')
   seekTo(segment.t0)
+})
+
+$('ir-recommend').addEventListener('click', async e => {
+  const button = e.target.closest('[data-ir-rec]')
+  const recommendation = button && current?.ir?.tachi?.recommendations?.[+button.dataset.irRec]
+  if (!recommendation?.sha256) return
+  const status = $('ir-recommend-status')
+  button.disabled = true
+  status.textContent = '저장된 채보 확인 중…'
+  try {
+    const response = await fetch(`/api/charts?sha256=${recommendation.sha256}`)
+    const [chart] = response.ok ? await response.json() : []
+    if (!chart) throw new Error('서버에 저장된 원본이 없습니다. 채보 폴더를 다시 가져오면 연결됩니다.')
+    if (await openSavedChart(chart)) setMode('overview')
+  } catch (error) {
+    status.textContent = error.message || '채보를 불러오지 못했습니다.'
+  } finally {
+    button.disabled = false
+  }
 })
 
 async function loadIrData() {
@@ -657,17 +677,22 @@ $('saved-chart').addEventListener('input', e => {
   searchTimer = setTimeout(() => loadSavedCharts(value), 200)
 })
 
-$('load-saved').addEventListener('click', async () => {
-  const chart = savedCharts.get($('saved-charts').value)
-  if (!chart) return
+async function openSavedChart(chart) {
   try {
     const res = await fetch(`/api/charts/${encodeURIComponent(chart.id)}`)
     if (!res.ok) throw new Error('저장된 채보를 가져오지 못했습니다')
     await open(new File([await res.blob()], chart.filename.split('/').pop()))
+    return true
   } catch (error) {
     $('error').textContent = `${chart.filename} — ${error.message}`
     $('error').hidden = false
+    return false
   }
+}
+
+$('load-saved').addEventListener('click', () => {
+  const chart = savedCharts.get($('saved-charts').value)
+  if (chart) return openSavedChart(chart)
 })
 
 loadSavedCharts()

@@ -144,6 +144,7 @@ export function recommend(current, charts = [], recent = []) {
       artist: chart.song.artist,
       level: level(chart) || '?',
       played: played.has(chart.chartID),
+      sha256: /^[\da-f]{64}$/i.test(chart.data.hashSHA256) ? chart.data.hashSHA256.toLowerCase() : null,
       url: `${TACHI}/games/${chart.game}/charts/${chart.chartID}`,
     }))
 }

@@ -49,10 +49,10 @@ async function importCharts(input) {
           arrayBuffer: async () => content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength),
         })
         await pool.query(
-          `INSERT INTO charts (filename, title, artist, content) VALUES ($1, $2, $3, $4)
+          `INSERT INTO charts (filename, title, artist, sha256, content) VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (filename) DO UPDATE
-           SET title = EXCLUDED.title, artist = EXCLUDED.artist, content = EXCLUDED.content`,
-          [chart.name, parsed.info.title || '', parsed.info.artist || '', content],
+           SET title = EXCLUDED.title, artist = EXCLUDED.artist, sha256 = EXCLUDED.sha256, content = EXCLUDED.content`,
+          [chart.name, parsed.info.title || '', parsed.info.artist || '', parsed.hashes.sha256, content],
         )
         saved++
       } catch (error) {

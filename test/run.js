@@ -34,9 +34,11 @@ const run = (text, name = 'x.bms') => {
     players: 9, sample: 2, average: 80, top: 1800, minBp: 2,
     lamps: { 'HARD CLEAR': 1, 'EASY CLEAR': 1 },
   })
-  const chart = (id, n) => ({ chartID: id, game: 'bms-7k', song: { title: id, artist: 'a' }, data: { aiLevel: `★${n}` } })
-  assert.deepEqual(recommend(chart('now', 10), [chart('hard', 11), chart('same', 10), chart('easy', 8)], []).map(x => x.title),
+  const chart = (id, n) => ({ chartID: id, game: 'bms-7k', song: { title: id, artist: 'a' }, data: { aiLevel: `★${n}`, hashSHA256: 'a'.repeat(64) } })
+  const recommendations = recommend(chart('now', 10), [chart('hard', 11), chart('same', 10), chart('easy', 8)], [])
+  assert.deepEqual(recommendations.map(x => x.title),
     ['same', 'easy'], '현재보다 같거나 두 단계 낮은 인기 채보만 추천')
+  assert.equal(recommendations[0].sha256, 'a'.repeat(64), '추천 채보를 저장 원본과 연결할 SHA-256을 보존')
   assert.deepEqual(progression([
     { timeAchieved: '2026-01-03', scoreData: { percent: 80, score: 1600 } },
     { timeAchieved: '2026-01-01', scoreData: { percent: 60, score: 1200 } },

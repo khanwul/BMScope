@@ -174,13 +174,15 @@ async function handle(req, res, pool, root, fetcher) {
 
   if (req.method === 'GET' && pathname === '/api/charts') {
     const search = url.searchParams.get('q')
+    const sha256 = url.searchParams.get('sha256')
+    if (sha256 !== null && !/^[\da-f]{64}$/i.test(sha256)) return json(res, 400, { error: '잘못된 SHA-256입니다' })
     const { rows } = await pool.query(
       `SELECT id::text, filename, title, artist
        FROM charts
-       ${search === null ? '' : "WHERE concat_ws(' ', filename, title, artist) ILIKE $1"}
+       ${sha256 !== null ? 'WHERE sha256 = $1' : search === null ? '' : "WHERE concat_ws(' ', filename, title, artist) ILIKE $1"}
        ORDER BY COALESCE(NULLIF(title, ''), filename), filename
-       ${search === null ? '' : 'LIMIT 20'}`,
-      search === null ? [] : [`%${search}%`],
+       ${search === null && sha256 === null ? '' : 'LIMIT 20'}`,
+      sha256 !== null ? [sha256.toLowerCase()] : search === null ? [] : [`%${search}%`],
     )
     return json(res, 200, rows)
   }
