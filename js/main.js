@@ -435,14 +435,16 @@ async function loadSavedCharts(query = '') {
     const charts = await res.json()
     if (request !== savedRequest || !Array.isArray(charts)) return
     const list = $('saved-charts')
+    savedCharts.clear()
     list.replaceChildren()
     for (const chart of charts) {
-      const label = chartLabel(chart)
-      savedCharts.set(label, chart)
+      savedCharts.set(String(chart.id), chart)
       const option = document.createElement('option')
-      option.value = label
+      option.value = chart.id
+      option.textContent = chartLabel(chart)
       list.append(option)
     }
+    list.hidden = !charts.length
     $('saved').hidden = false
   } catch {
     if (request === savedRequest) $('saved').hidden = true
@@ -455,7 +457,7 @@ $('saved-chart').addEventListener('input', e => {
 })
 
 $('load-saved').addEventListener('click', async () => {
-  const chart = savedCharts.get($('saved-chart').value)
+  const chart = savedCharts.get($('saved-charts').value)
   if (!chart) return
   try {
     const res = await fetch(`/api/charts/${encodeURIComponent(chart.id)}`)

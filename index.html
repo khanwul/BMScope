@@ -20,9 +20,11 @@
 
     <div id="saved" hidden>
       <label for="saved-chart">저장된 채보</label>
-      <input id="saved-chart" type="search" list="saved-charts" placeholder="제목 · 작곡가 · 파일명 검색" autocomplete="off">
-      <datalist id="saved-charts"></datalist>
-      <button id="load-saved" type="button">불러오기</button>
+      <div id="saved-picker">
+        <input id="saved-chart" type="search" placeholder="제목 · 작곡가 · 파일명 검색" autocomplete="off">
+        <button id="load-saved" type="button">불러오기</button>
+        <select id="saved-charts" size="5" aria-label="검색 결과" hidden></select>
+      </div>
     </div>
 
     <p id="error" hidden></p>

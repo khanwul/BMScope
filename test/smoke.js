@@ -103,8 +103,8 @@ listeners.get('saved-chart:input')({ currentTarget: { value: 'DB Artist' } })
 await new Promise(resolve => setTimeout(resolve, 210))
 assert.ok(fetched.includes('/api/charts?q=DB%20Artist'), '입력한 검색어로 자동완성을 갱신하지 않는다')
 const suggestion = cache.get('saved-charts').children[0]
-assert.match(suggestion.value, /DB Demo.*DB Artist.*db\.bms/, '검색 자동완성에 제목·작곡가·파일명이 없다')
-cache.get('saved-chart').value = suggestion.value
+assert.match(suggestion.textContent, /DB Demo.*DB Artist.*db\.bms/, '검색 결과에 제목·작곡가·파일명이 없다')
+cache.get('saved-charts').value = suggestion.value
 await listeners.get('load-saved:click')()
 assert.equal(cache.get('title').textContent, 'BMScope Demo', 'DB 채보를 열지 못했다')
 
