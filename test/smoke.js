@@ -45,10 +45,7 @@ function el(id) {
     click: noop,
     toBlob: cb => cb({}),
     replaceChildren(...children) { this.children = children },
-    append(child) {
-      this.children.push(child)
-      if (this.id === 'saved-chart' && this.children.length === 1) this.value = child.value
-    },
+    append(child) { this.children.push(child) },
     addEventListener(type, fn) { listeners.set(`${id}:${type}`, fn) },
   }
 }
@@ -94,7 +91,8 @@ globalThis.File = class {
 }
 
 const dbChart = readFileSync(new URL('test/fixtures/sp7k.bms', root))
-globalThis.fetch = async url => url === '/api/charts'
+const fetched = []
+globalThis.fetch = async url => (fetched.push(url), url.startsWith('/api/charts?q='))
   ? { ok: true, json: async () => [{ id: '1', filename: 'db.bms', title: 'DB Demo', artist: 'DB Artist' }] }
   : { ok: url === '/api/charts/1', blob: async () => new Blob([dbChart]) }
 
@@ -102,6 +100,12 @@ await import(new URL('js/main.js', root))
 await new Promise(setImmediate)
 assert.deepStrictEqual(missing, [], `index.html 에 없는 id 를 찾는다: ${missing}`)
 assert.equal(cache.get('saved').hidden, false, 'DB 채보 목록이 안 떴다')
+listeners.get('saved-chart:input')({ currentTarget: { value: 'DB Artist' } })
+await new Promise(resolve => setTimeout(resolve, 210))
+assert.ok(fetched.includes('/api/charts?q=DB%20Artist'), '입력한 검색어로 자동완성을 갱신하지 않는다')
+const suggestion = cache.get('saved-charts').children[0]
+assert.match(suggestion.value, /DB Demo.*DB Artist.*db\.bms/, '검색 자동완성에 제목·작곡가·파일명이 없다')
+cache.get('saved-chart').value = suggestion.value
 await listeners.get('load-saved:click')()
 assert.equal(cache.get('title').textContent, 'BMScope Demo', 'DB 채보를 열지 못했다')
 

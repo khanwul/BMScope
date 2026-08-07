@@ -9,8 +9,6 @@ const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
 }
 
 const send = (res, status, body, type = 'application/json; charset=utf-8') => {
@@ -29,7 +27,8 @@ function publicFile(root, pathname) {
 }
 
 async function handle(req, res, pool, root) {
-  const { pathname } = new URL(req.url, 'http://localhost')
+  const url = new URL(req.url, 'http://localhost')
+  const { pathname } = url
 
   if (req.method === 'GET' && pathname === '/health') return send(res, 200, 'ok', 'text/plain; charset=utf-8')
 
@@ -37,16 +36,21 @@ async function handle(req, res, pool, root) {
     return json(res, 503, { error: 'DATABASE_URL이 설정되지 않았습니다' })
 
   if (req.method === 'GET' && pathname === '/api/charts') {
+    const search = url.searchParams.get('q')
     const { rows } = await pool.query(
       `SELECT id::text, filename, title, artist
-       FROM charts ORDER BY COALESCE(NULLIF(title, ''), filename), filename`,
+       FROM charts
+       ${search === null ? '' : "WHERE concat_ws(' ', filename, title, artist) ILIKE $1"}
+       ORDER BY COALESCE(NULLIF(title, ''), filename), filename
+       ${search === null ? '' : 'LIMIT 20'}`,
+      search === null ? [] : [`%${search}%`],
     )
     return json(res, 200, rows)
   }
 
   const match = req.method === 'GET' && pathname.match(/^\/api\/charts\/([1-9]\d*)$/)
   if (match) {
-    const { rows } = await pool.query('SELECT filename, content FROM charts WHERE id = $1', [match[1]])
+    const { rows } = await pool.query('SELECT content FROM charts WHERE id = $1', [match[1]])
     if (!rows.length) return json(res, 404, { error: '채보를 찾을 수 없습니다' })
     return send(res, 200, rows[0].content, 'application/octet-stream')
   }
@@ -77,7 +81,7 @@ export function createHandler(pool, root = ROOT) {
   })
 }
 
-export async function start() {
+async function start() {
   const pool = createPool()
   if (pool) await initDb(pool)
   const port = Number(process.env.PORT) || 10000

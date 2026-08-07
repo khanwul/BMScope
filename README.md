@@ -32,6 +32,7 @@ export DATABASE_URL='postgresql://...'
 npm start           # → http://localhost:10000
 npm run import:chart -- ./song.bms
 npm run import:chart -- ./song-pack  # 하위 폴더까지 일괄 등록
+npm run import:chart -- ./packs --highest-7k  # 곡별 최고난도 7K SP 한 장
 ```
 
 같은 파일명으로 다시 import하면 기존 채보를 갱신한다. DB 테이블은 서버나 import 명령이 처음 실행될 때 자동 생성된다.

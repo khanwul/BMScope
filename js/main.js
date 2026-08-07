@@ -16,7 +16,7 @@ const r1 = n => n.toFixed(1)
 let current = null
 let currentFile = null
 let cursor = 0
-let savedCharts = []
+const savedCharts = new Map()
 
 // 구간 나누기 방식. 'texture' = bmspc 기본(밀도·반복 변화만), 'fine' = 그 안에서 태그가
 // 2박 넘게 바뀌는 지점까지 추가로 자름. 세분화가 기본 — 구간 선택이 주 기능이라서.
@@ -390,29 +390,39 @@ drop.addEventListener('drop', e => {
   if (f) open(f)
 })
 
-async function loadSavedCharts() {
+const chartLabel = chart => [chart.title || chart.filename, chart.artist, chart.title && chart.filename].filter(Boolean).join(' — ')
+let savedRequest = 0
+let searchTimer
+
+async function loadSavedCharts(query = '') {
+  const request = ++savedRequest
   try {
-    const res = await fetch('/api/charts')
+    const res = await fetch(`/api/charts?q=${encodeURIComponent(query)}`)
     if (!res.ok) throw new Error()
-    savedCharts = await res.json()
-    if (!Array.isArray(savedCharts) || !savedCharts.length) return
-    const select = $('saved-chart')
-    select.replaceChildren()
-    for (const chart of savedCharts) {
+    const charts = await res.json()
+    if (request !== savedRequest || !Array.isArray(charts)) return
+    const list = $('saved-charts')
+    list.replaceChildren()
+    for (const chart of charts) {
+      const label = chartLabel(chart)
+      savedCharts.set(label, chart)
       const option = document.createElement('option')
-      option.value = chart.id
-      option.textContent = [chart.title || chart.filename, chart.artist].filter(Boolean).join(' — ') +
-        (chart.filename.includes('/') ? ` (${chart.filename})` : '')
-      select.append(option)
+      option.value = label
+      list.append(option)
     }
     $('saved').hidden = false
   } catch {
-    $('saved').hidden = true
+    if (request === savedRequest) $('saved').hidden = true
   }
 }
 
+$('saved-chart').addEventListener('input', e => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => loadSavedCharts(e.currentTarget.value), 200)
+})
+
 $('load-saved').addEventListener('click', async () => {
-  const chart = savedCharts.find(c => String(c.id) === $('saved-chart').value)
+  const chart = savedCharts.get($('saved-chart').value)
   if (!chart) return
   try {
     const res = await fetch(`/api/charts/${encodeURIComponent(chart.id)}`)

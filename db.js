@@ -2,7 +2,7 @@ import pg from 'pg'
 
 const { Pool } = pg
 
-export const SCHEMA = `
+const SCHEMA = `
   CREATE TABLE IF NOT EXISTS charts (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     filename TEXT NOT NULL UNIQUE CHECK (filename ~* '\\.(bms|bme|bml|pms)$'),
@@ -14,7 +14,10 @@ export const SCHEMA = `
 `
 
 export function createPool(url = process.env.DATABASE_URL) {
-  return url ? new Pool({ connectionString: url }) : null
+  if (!url) return null
+  const connection = new URL(url)
+  if (connection.hostname.endsWith('.render.com')) connection.searchParams.set('sslmode', 'verify-full')
+  return new Pool({ connectionString: connection.href })
 }
 
 export const initDb = pool => pool.query(SCHEMA)
