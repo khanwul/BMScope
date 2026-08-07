@@ -88,13 +88,14 @@ h3 .dim { font-weight: 400; margin-left: 8px; }
 }
 #ir-tools button { cursor: pointer; }
 #ir-tools button:hover { border-color: var(--accent); }
-#ir-status { margin: 10px 0 0; }
-.ir-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-top: 12px; }
-.ir-community { grid-column: 1 / -1; min-width: 0; }
-.ir-cols h4 { margin: 0 0 7px; font-size: 12px; }
-.ir-cols ol, .ir-cols ul { margin: 0; padding-left: 20px; font-size: 12px; }
-.ir-cols li { margin: 3px 0; }
-.ir-cols dl { gap: 4px 10px; }
+/* 연결 상태는 IR 하나당 배지 하나 — .badge 를 그대로 쓰고 켜짐만 .hot 으로 구분한다. */
+#ir-status { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
+#ir-status .badge { background: var(--bg); }
+#ir-status .badge:not(.hot) { color: var(--dim); }
+#ir-content h4 { margin: 14px 0 7px; font-size: 12px; }
+#ir-content ol, #ir-content ul { margin: 0; padding-left: 20px; font-size: 12px; }
+#ir-content li { margin: 3px 0; }
+#ir-stats { gap: 4px 10px; }
 .lamp-line { display: flex; height: 8px; margin-top: 9px; overflow: hidden; border-radius: 4px; background: var(--grid); }
 .lamp-line span { min-width: 2px; background: var(--accent); opacity: calc(.35 + var(--lamp-i) * .08); }
 #ir-random { margin: 8px 0 0; }
@@ -108,7 +109,6 @@ h3 .dim { font-weight: 400; margin-left: 8px; }
 .ir-practice { width: 100%; padding: 5px 0; color: var(--fg); background: none; border: 0; text-align: left; cursor: pointer; }
 .ir-practice:hover strong { color: var(--accent); }
 .ir-practice .dim { display: block; margin-top: 3px; }
-.ir-next { margin-top: 12px !important; }
 #ir-growth { margin-top: 7px; }
 #ir-growth svg { display: block; width: 100%; height: 34px; margin-top: 3px; }
 #ir-growth polyline { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }

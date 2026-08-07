@@ -102,7 +102,7 @@
 
       <div id="ir-view" class="view" hidden>
 
-        <section class="panel" id="ir">
+        <section class="panel">
           <h3>IR · 실전 데이터 <span class="dim">파일 해시로 조회 · 점수는 전송하지 않음</span></h3>
           <div id="ir-tools">
             <nav id="ir-links" aria-label="외부 IR">
@@ -131,33 +131,38 @@
             <button id="load-ir-user" type="button">조회</button>
           </div>
           <p id="ir-status" class="dim">조회 중…</p>
-          <div id="ir-content" class="ir-cols" hidden>
-            <div class="ir-community">
-              <h4>커뮤니티</h4>
-              <dl id="ir-stats"></dl>
-              <div id="ir-lamps"></div>
-              <div id="ir-other"></div>
-              <p id="ir-random" class="dim"></p>
-            </div>
-            <div>
-              <h4>내 기록 · 최근 성과</h4>
+        </section>
+
+        <!-- 카드 하나 = 물음 하나. 스택/그리드는 .view/.cols 를 그대로 쓴다. -->
+        <div id="ir-content" class="view" hidden>
+          <section class="panel">
+            <h3>커뮤니티</h3>
+            <dl id="ir-stats"></dl>
+            <div id="ir-lamps"></div>
+            <div id="ir-other"></div>
+            <p id="ir-random" class="dim"></p>
+          </section>
+
+          <div class="cols">
+            <section class="panel">
+              <h3>내 기록 · 최근 성과</h3>
               <div id="ir-personal" class="dim">사용자명을 입력하면 표시합니다.</div>
               <div id="ir-growth"></div>
               <div id="ir-rival-result" class="dim"></div>
               <ol id="ir-recent"></ol>
-            </div>
-            <div>
-              <h4>패턴 연습 <span id="ir-focus" class="dim"></span></h4>
+            </section>
+            <section class="panel">
+              <h3>패턴 연습 <span id="ir-focus" class="dim"></span></h3>
               <ul id="ir-practice"></ul>
-              <h4 class="ir-next">다음 채보</h4>
+              <h4>다음 채보</h4>
               <ol id="ir-recommend"></ol>
-            </div>
-            <div>
-              <h4>BMS-IR 주간 인기</h4>
+            </section>
+            <section class="panel">
+              <h3>BMS-IR 주간 인기</h3>
               <ol id="ir-popular"></ol>
-            </div>
+            </section>
           </div>
-        </section>
+        </div>
       </div>
 
       <div id="play-view" class="view" hidden>

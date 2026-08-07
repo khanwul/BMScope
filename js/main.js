@@ -373,13 +373,13 @@ function renderIr() {
     `<span class="dim">${x.players}명 · ${x.plays}회</span></li>`).join('') || '<li class="dim">조회 불가</li>'
 
   $('ir-content').hidden = false
-  $('ir-status').textContent = [
-    tachi?.chart ? 'Bokutachi 연결됨' : 'Bokutachi 미등록',
-    bms?.song?.found ? `BMS-IR (${IR_CLIENTS[bms.client]}) 연결됨` : `BMS-IR (${IR_CLIENTS[bms?.client] || IR_CLIENTS[irClient()]}) 미등록/조회 불가`,
-    minir ? 'MinIR 연결됨' : 'MinIR 미등록/조회 불가',
-    archive ? 'LR2IR Archive 연결됨' : 'LR2IR Archive 미등록/조회 불가',
-    'STELLAVERSE IR은 외부 링크만 제공',
-  ].join(' · ')
+  $('ir-status').innerHTML = [
+    ['Bokutachi', !!tachi?.chart],
+    [`BMS-IR (${IR_CLIENTS[bms?.client] || IR_CLIENTS[irClient()]})`, !!bms?.song?.found],
+    ['MinIR', !!minir],
+    ['LR2IR Archive', !!archive],
+  ].map(([name, ok]) => `<span class="badge${ok ? ' hot' : ''}" title="${ok ? '연결됨' : '미등록/조회 불가'}">${esc(name)}</span>`)
+    .join('') + '<span class="badge" title="조회 API 없음">STELLAVERSE IR 링크만</span>'
   if (tachi?.url) { $('bokutachi-link').href = tachi.url; $('bokutachi-link').hidden = false }
   renderIrRandom()
 
