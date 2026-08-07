@@ -61,6 +61,12 @@
             <span class="dim">끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그</span>
           </h3>
           <div id="overview-wrap"><canvas id="overview"></canvas></div>
+          <div id="overview-controls" class="viewer-controls">
+            <label>하이스피드 <input type="range" id="overview-hispeed" min="40" max="400" step="10" value="140">
+              <span id="overview-hispeed-v">1.00×</span></label>
+            <label>레인 <input id="overview-lane-order" class="lane-order" type="text" autocomplete="off" spellcheck="false"></label>
+            <button id="overview-lane-random" class="lane-random" type="button">랜덤</button>
+          </div>
         </section>
 
         <section class="panel">
@@ -96,15 +102,15 @@
             <span class="dim">스페이스 = 재생/일시정지 · 배경색 = 구간 태그 · 하이스피드와 배속은 별개 노브</span>
           </h3>
           <canvas id="play"></canvas>
-          <div id="controls">
+          <div id="controls" class="viewer-controls">
             <button id="playpause" type="button">▶ 재생</button>
             <label class="chk"><input type="checkbox" id="loop" checked>구간 반복</label>
             <label>하이스피드 <input type="range" id="hispeed" min="40" max="400" step="10" value="140">
               <span id="hispeed-v">1.00×</span></label>
             <label>배속 <input type="range" id="rate" min="25" max="200" step="5" value="100">
               <span id="rate-v">1.00×</span></label>
-            <label>레인 <input id="lane-order" type="text" autocomplete="off" spellcheck="false"></label>
-            <button id="lane-random" type="button">랜덤</button>
+            <label>레인 <input id="lane-order" class="lane-order" type="text" autocomplete="off" spellcheck="false"></label>
+            <button id="lane-random" class="lane-random" type="button">랜덤</button>
             <span id="seg-now" class="dim"></span>
           </div>
         </section>

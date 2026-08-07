@@ -84,12 +84,17 @@ $('playpause').addEventListener('click', () => { player.toggle(); syncTransport(
 $('loop').addEventListener('change', e => player.setLoop(e.target.checked))
 // 한 노브가 두 모드에 걸린다 — 재생은 px/position, 전체 보기는 컬럼 밀도. 뜻은 같다(노트 간격).
 // 수치는 배율로 보여준다: 두 모드의 원단위가 다르고, 어느 쪽도 사용자에게 뜻이 없는 숫자다.
-$('hispeed').addEventListener('input', e => {
-  const v = +e.target.value
+function setHispeed(v) {
   playView.setHispeed(v)
   overview.setHispeed(v)
-  $('hispeed-v').textContent = (v / HISPEED_1X).toFixed(2) + '×'
-})
+  const label = (v / HISPEED_1X).toFixed(2) + '×'
+  for (const prefix of ['', 'overview-']) {
+    $(prefix + 'hispeed').value = v
+    $(prefix + 'hispeed-v').textContent = label
+  }
+}
+for (const id of ['hispeed', 'overview-hispeed'])
+  $(id).addEventListener('input', e => setHispeed(+e.target.value))
 $('rate').addEventListener('input', e => {
   const v = +e.target.value / 100
   player.setRate(v)
@@ -104,12 +109,15 @@ function loadPlayerViews(notes) {
   player.load({ ...view, duration: stats.duration })
 }
 
-function applyLaneOrder(spec) {
-  const input = $('lane-order')
+const laneInputIds = ['lane-order', 'overview-lane-order']
+
+function applyLaneOrder(spec, input = $('lane-order')) {
   try {
     const notes = remapLanes(current.lanes.notes, current.lanes, spec)
-    input.setCustomValidity('')
-    input.value = spec.replace(/\s/g, '')
+    for (const id of laneInputIds) {
+      $(id).setCustomValidity('')
+      $(id).value = spec.replace(/\s/g, '')
+    }
     const time = player.now(), wasPlaying = player.playing(), range = timeline.getRange()
     loadPlayerViews(notes)
     timeline.setNotes(notes)
@@ -125,12 +133,15 @@ function applyLaneOrder(spec) {
   }
 }
 
-$('lane-order').addEventListener('input', e => e.currentTarget.setCustomValidity(''))
-$('lane-order').addEventListener('change', e => applyLaneOrder(e.currentTarget.value))
-$('lane-order').addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
-})
-$('lane-random').addEventListener('click', () => applyLaneOrder(randomLaneSpec(current.lanes)))
+for (const id of laneInputIds) {
+  $(id).addEventListener('input', e => e.currentTarget.setCustomValidity(''))
+  $(id).addEventListener('change', e => applyLaneOrder(e.currentTarget.value, e.currentTarget))
+  $(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+  })
+}
+for (const id of ['lane-random', 'overview-lane-random'])
+  $(id).addEventListener('click', () => applyLaneOrder(randomLaneSpec(current.lanes)))
 
 function selectSegment(seg) {
   if (seg) timeline.setRange({ a: seg.t0, b: seg.t1 })
@@ -182,8 +193,12 @@ async function show(file, random = 1) {
   const view = { notes: lanes.notes, keyCols: lanes.keyCols, scratchCols: lanes.scratchCols, segs }
   timeline.load({ ...view, id: `${file.name}${file.size}:${parsed.randomChoice}`, duration: stats.duration })
   loadPlayerViews(lanes.notes)
-  $('lane-order').value = laneSpec(lanes)
-  $('lane-order').title = lanes.scratchCols.length === 2 ? '1P/2P 순서 (예: 54321/12345)' : '레인 순서 (예: 54321)'
+  const spec = laneSpec(lanes)
+  const laneTitle = lanes.scratchCols.length === 2 ? '1P/2P 순서 (예: 54321/12345)' : '레인 순서 (예: 54321)'
+  for (const id of laneInputIds) {
+    $(id).value = spec
+    $(id).title = laneTitle
+  }
   syncTransport()
 
   const { info, bpm, counts, density } = stats

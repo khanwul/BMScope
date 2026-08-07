@@ -53,6 +53,9 @@ function el(id) {
     getBoundingClientRect: () => (cache.get('result').hidden
       ? { width: 0, height: 0, left: 0, top: 0 }
       : { width: 900, height: 200, left: 0, top: 0 }),
+    setCustomValidity: noop,
+    reportValidity: noop,
+    blur: noop,
     setPointerCapture: noop,
     click: noop,
     toBlob: cb => cb({}),
@@ -188,13 +191,17 @@ assert.match(cache.get('range').textContent, /커서 0:00 · 재생 구간: 전�
 
 // 하이스피드 = 전체 보기의 컬럼 밀도. 올리면 캔버스가 래퍼(900)보다 넓어져 가로 스크롤이 되고,
 // 기본값(140)이면 딱 맞아 스크롤이 안 생긴다.
-const hispeed = listeners.get('hispeed:input')
+const hispeed = listeners.get('overview-hispeed:input')
 const overview = cache.get('overview')
 hispeed({ target: { value: '280' } })
 assert.equal(overview.style.width, '1800px', '하이스피드를 올려도 컬럼이 안 늘어난다')
 assert.equal(cache.get('hispeed-v').textContent, '2.00×', '하이스피드 수치가 배율로 안 나온다')
-hispeed({ target: { value: '140' } })
+assert.equal(cache.get('overview-hispeed-v').textContent, '2.00×', '두 화면의 하이스피드가 어긋난다')
+listeners.get('hispeed:input')({ target: { value: '140' } })
 assert.equal(overview.style.width, '900px', '기본값인데 캔버스가 래퍼 폭과 다르다')
+
+listeners.get('overview-lane-random:click')()
+assert.equal(cache.get('overview-lane-order').value, cache.get('lane-order').value, '두 화면의 레인 순서가 어긋난다')
 
 // 잘못된 파일: 패널은 감춘 채로 두고 오류만 띄운다 (앞 파일 결과가 남아 있으면 안 된다).
 const feed = (name, bytes) => listeners.get('file:change')({
