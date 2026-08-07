@@ -2,14 +2,19 @@
   "name": "bmscope",
   "private": true,
   "type": "module",
-  "description": "BMS 채보 분석 · 시각화 · 재생 (정적 사이트, 빌드 불필요)",
+  "description": "BMS 채보 분석 · 시각화 · 재생",
   "scripts": {
     "build:vendor": "esbuild build/entry.js --bundle --format=esm --platform=browser --minify --outfile=js/vendor/bms.js",
+    "start": "node server.js",
+    "import:chart": "node scripts/import-chart.js",
     "serve": "python3 build/serve.py",
-    "test": "node test/run.js && node test/smoke.js"
+    "test": "node test/run.js && node test/server.js && node test/smoke.js"
   },
   "devDependencies": {
     "bms": "^51.0.0",
     "esbuild": "^0.25.0"
+  },
+  "dependencies": {
+    "pg": "^8.22.0"
   }
 }

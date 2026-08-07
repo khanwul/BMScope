@@ -32,7 +32,7 @@ function el(id) {
   const c = ctx2d()
   return {
     id, textContent: '', innerHTML: '', hidden: HIDDEN.has(id), value: '100', checked: false,
-    style: {}, classList: { add: noop, remove: noop },
+    style: {}, children: [], classList: { add: noop, remove: noop },
     width: 0, height: 0,
     // 전체 보기는 캔버스가 아니라 래퍼의 폭으로 컬럼을 나눈다(캔버스는 넘칠 수 있다)
     parentElement: { clientWidth: 900, clientHeight: 200, scrollLeft: 0 },
@@ -44,6 +44,11 @@ function el(id) {
     setPointerCapture: noop,
     click: noop,
     toBlob: cb => cb({}),
+    replaceChildren(...children) { this.children = children },
+    append(child) {
+      this.children.push(child)
+      if (this.id === 'saved-chart' && this.children.length === 1) this.value = child.value
+    },
     addEventListener(type, fn) { listeners.set(`${id}:${type}`, fn) },
   }
 }
@@ -83,9 +88,22 @@ globalThis.AudioContext = class {
 }
 globalThis.DynamicsCompressorNode = class { connect() {} }
 globalThis.AudioBufferSourceNode = class { playbackRate = {}; connect() {} start() {} }
+globalThis.File = class {
+  constructor(parts, name) { this.blob = new Blob(parts); this.name = name; this.size = this.blob.size }
+  arrayBuffer() { return this.blob.arrayBuffer() }
+}
+
+const dbChart = readFileSync(new URL('test/fixtures/sp7k.bms', root))
+globalThis.fetch = async url => url === '/api/charts'
+  ? { ok: true, json: async () => [{ id: '1', filename: 'db.bms', title: 'DB Demo', artist: 'DB Artist' }] }
+  : { ok: url === '/api/charts/1', blob: async () => new Blob([dbChart]) }
 
 await import(new URL('js/main.js', root))
+await new Promise(setImmediate)
 assert.deepStrictEqual(missing, [], `index.html 에 없는 id 를 찾는다: ${missing}`)
+assert.equal(cache.get('saved').hidden, false, 'DB 채보 목록이 안 떴다')
+await listeners.get('load-saved:click')()
+assert.equal(cache.get('title').textContent, 'BMScope Demo', 'DB 채보를 열지 못했다')
 
 const buf = readFileSync(new URL('test/fixtures/sp7k.bms', root))
 await listeners.get('file:change')({

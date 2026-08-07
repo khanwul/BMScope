@@ -16,6 +16,7 @@ const r1 = n => n.toFixed(1)
 let current = null
 let currentFile = null
 let cursor = 0
+let savedCharts = []
 
 // 구간 나누기 방식. 'texture' = bmspc 기본(밀도·반복 변화만), 'fine' = 그 안에서 태그가
 // 2박 넘게 바뀌는 지점까지 추가로 자름. 세분화가 기본 — 구간 선택이 주 기능이라서.
@@ -63,7 +64,7 @@ function setCursor(t) {
   ;(mode === 'play' ? playView : overview).setTime(t)
   showRange()
   const seg = current?.segs.find(s => t >= s.t0 && t < s.t1)
-  $('seg-now').textContent = seg ? seg.tags.join('+') : ''
+  $('seg-now').innerHTML = seg ? seg.tags.map(t => `<span class="tag tag-${t}">${t}</span>`).join('') : ''
 }
 
 // rAF 루프는 하나만 돈다. 모드를 바꿔도 재생이 안 끊기므로 syncTransport 가 여러 번
@@ -126,7 +127,7 @@ document.querySelectorAll('input[name=mode]').forEach(r =>
     $('overview').hidden = play
     $('play').hidden = !play
     $('view-hint').textContent = play
-      ? '스페이스 = 재생/일시정지 · 하이스피드와 배속은 별개 노브'
+      ? '스페이스 = 재생/일시정지 · 배경색 = 구간 태그 · 하이스피드와 배속은 별개 노브'
       : '끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그 · 하이스피드 = 가로 확대'
     // 재생은 모드와 무관하다 — 전체 보기로 넘어와도 그대로 흐른다.
     syncTransport()
@@ -348,6 +349,7 @@ document.querySelectorAll('input[name=segmode]').forEach(r =>
     current.segs = cutSegments(current.wf)
     timeline.setSegs(current.segs)
     overview.setSegs(current.segs)
+    playView.setSegs(current.segs)
     redraw()
   }))
 
@@ -387,3 +389,38 @@ drop.addEventListener('drop', e => {
   const f = e.dataTransfer.files[0]
   if (f) open(f)
 })
+
+async function loadSavedCharts() {
+  try {
+    const res = await fetch('/api/charts')
+    if (!res.ok) throw new Error()
+    savedCharts = await res.json()
+    if (!Array.isArray(savedCharts) || !savedCharts.length) return
+    const select = $('saved-chart')
+    select.replaceChildren()
+    for (const chart of savedCharts) {
+      const option = document.createElement('option')
+      option.value = chart.id
+      option.textContent = [chart.title || chart.filename, chart.artist].filter(Boolean).join(' — ')
+      select.append(option)
+    }
+    $('saved').hidden = false
+  } catch {
+    $('saved').hidden = true
+  }
+}
+
+$('load-saved').addEventListener('click', async () => {
+  const chart = savedCharts.find(c => String(c.id) === $('saved-chart').value)
+  if (!chart) return
+  try {
+    const res = await fetch(`/api/charts/${encodeURIComponent(chart.id)}`)
+    if (!res.ok) throw new Error('저장된 채보를 가져오지 못했습니다')
+    await open(new File([await res.blob()], chart.filename))
+  } catch (error) {
+    $('error').textContent = `${chart.filename} — ${error.message}`
+    $('error').hidden = false
+  }
+})
+
+loadSavedCharts()

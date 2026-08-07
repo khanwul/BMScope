@@ -1,7 +1,7 @@
 # BMScope
 
-BMS 채보 파일을 브라우저에서 파싱해 **분석 · 시각화 · 재생**하는 정적 사이트.
-서버 없음, 업로드 없음 — 파일은 브라우저 밖으로 나가지 않는다.
+BMS 채보 파일을 브라우저에서 파싱해 **분석 · 시각화 · 재생**하는 사이트.
+직접 연 파일은 업로드하지 않으며, Render PostgreSQL에 미리 저장한 채보도 불러올 수 있다.
 
 **→ https://khanwul.github.io/BMScope/**
 
@@ -19,11 +19,27 @@ BMS 채보 파일을 브라우저에서 파싱해 **분석 · 시각화 · 재�
 
 ## 실행
 
-빌드 스텝이 없다. 저장소를 받아서 정적 서버로 열면 된다 (ES 모듈이라 `file://` 은 안 됨).
+DB 없이 기존 정적 모드로 실행할 수 있다 (ES 모듈이라 `file://` 은 안 됨).
 
 ```bash
 npm run serve      # → http://localhost:8000
 ```
+
+저장 채보까지 사용하려면 PostgreSQL 연결 문자열을 지정해 Node 서버를 실행한다.
+
+```bash
+export DATABASE_URL='postgresql://...'
+npm start           # → http://localhost:10000
+npm run import:chart -- ./song.bms
+```
+
+같은 파일명으로 다시 import하면 기존 채보를 갱신한다. DB 테이블은 서버나 import 명령이 처음 실행될 때 자동 생성된다.
+
+## Render 배포
+
+Render Dashboard에서 이 저장소를 Blueprint로 연결하면 `render.yaml`이 Web Service와 PostgreSQL을 만들고 `DATABASE_URL`을 자동 연결한다. 배포 후 Render의 External Database URL을 로컬 `DATABASE_URL`로 지정해 위 import 명령을 실행하면 목록에 표시된다.
+
+무료 PostgreSQL은 30일 후 만료되므로 계속 보관할 채보에는 유료 DB를 사용한다.
 
 ## 개발
 
@@ -32,7 +48,7 @@ npm test                         # 순수 로직 + 배선 스모크
 npm i && npm run build:vendor    # bms-js 버전 올릴 때만
 ```
 
-의존성은 파싱용 [bms-js](https://github.com/bemusic/bms-js) 하나뿐이고, 번들 산출물(`js/vendor/bms.js`, 34.5KB)을 커밋해 저장소의 빌드 스텝을 0으로 유지한다.
+브라우저 파싱은 [bms-js](https://github.com/bemusic/bms-js), 서버 DB 연결은 `pg`를 사용한다. 파서 번들 산출물(`js/vendor/bms.js`, 34.5KB)은 커밋되어 별도 프런트엔드 빌드가 없다.
 
 `js/` 한 층이고 모듈 이름이 곧 역할이다. 각 파일 첫 주석이 자기 계약을 적어 두므로, 구현된 동작의 정답은 코드다 — 레인 배치는 `lanes.js`, bmspc 포팅분은 `features.js`/`segment.js`/`tagger.js`, 렌더러는 `charts.js`/`timeline.js`/`preview.js`, 배선은 `main.js`.
 
@@ -45,7 +61,7 @@ npm i && npm run build:vendor    # bms-js 버전 올릴 때만
 
 ## 사용한 프로젝트
 
-- **[bms-js](https://github.com/bemusic/bms-js)** (MIT) — 유일한 런타임 의존성. `#RANDOM`/`#SWITCH` 전개, BPM 변화·STOP·마디배율을 반영한 시간축 계산, LN 해석을 맡는다. 노드 전용 `Reader`를 피하려고 서브모듈만 직접 번들한다 ([build/entry.js](build/entry.js) 주석 참고).
+- **[bms-js](https://github.com/bemusic/bms-js)** (MIT) — 유일한 브라우저 런타임 의존성. `#RANDOM`/`#SWITCH` 전개, BPM 변화·STOP·마디배율을 반영한 시간축 계산, LN 해석을 맡는다. 노드 전용 `Reader`를 피하려고 서브모듈만 직접 번들한다 ([build/entry.js](build/entry.js) 주석 참고).
 - **[bmspc](https://github.com/khanwul/bmspc)** (MIT, Python) — 구간 분할과 패턴 태깅의 원본. 윈도우 피처 · PELT 구간화 · 태그 11종 임계값을 JS로 포팅했고, 원본의 `__main__` self-check를 `test/run.js`로 옮겨 대조 검증했다.
 - **[ruptures](https://github.com/deepcharles/ruptures)** (BSD-2, Python) — bmspc가 쓰는 변화점 탐지 라이브러리. JS 대체품이 없어 PELT를 직접 구현했다(45줄). PELT는 정확 알고리즘이라 — 가지치기는 속도 최적화일 뿐 — 같은 목적함수의 DP를 풀면 경계가 동일하다. `ruptures`의 기본값 `jump=5`를 그대로 맞춰야 원본과 결과가 같다.
 - **[esbuild](https://github.com/evanw/esbuild)** (MIT) — bms-js 번들링. 개발 의존성이라 저장소를 쓰는 쪽에는 필요 없다.

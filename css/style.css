@@ -66,6 +66,16 @@ h3 .dim { font-weight: 400; margin-left: 8px; }
 }
 #drop:hover, #drop.over { border-color: var(--accent); background: #171b26; }
 
+#saved { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; }
+#saved label { color: var(--dim); font-size: 12px; }
+#saved select, #saved button {
+  padding: 6px 10px; font: inherit; color: var(--fg); background: var(--panel);
+  border: 1px solid var(--grid); border-radius: 6px;
+}
+#saved select { min-width: 260px; }
+#saved button { cursor: pointer; }
+#saved button:hover { border-color: var(--accent); }
+
 #error {
   margin: 12px 0 0; padding: 10px 14px; font-size: 13px;
   color: var(--scratch); border: 1px solid var(--scratch); border-radius: 8px;
@@ -113,6 +123,7 @@ canvas { display: block; width: 100%; }
   background: var(--accent); color: #0b0d12; border: 0; border-radius: 6px; cursor: pointer;
 }
 #rate-v { font-variant-numeric: tabular-nums; min-width: 42px; }
+#seg-now { display: flex; gap: 4px; }
 #range { margin: 8px 0 0; font-variant-numeric: tabular-nums; }
 
 h3 button {

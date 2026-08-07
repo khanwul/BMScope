@@ -60,6 +60,16 @@ export function createPlayView(canvas) {
     const origin = data.pos.position(nowBeat)
     const yOf = beat => judgeY - (data.pos.position(beat) - origin) * hispeed
 
+    // 구간 태그 배경 — 전체 보기와 같은 색 규칙. 태그가 갈리는 지점이 판정선으로 내려온다.
+    ctx.globalAlpha = 0.13
+    for (const s of data.segs) {
+      const yTop = yOf(s.beat1), yBot = yOf(s.beat0)
+      if (yBot < 0 || yTop > h) continue
+      ctx.fillStyle = css(`--tag-${s.tags[0]}`) || css('--dim')
+      ctx.fillRect(x0, yTop, noteW, yBot - yTop)
+    }
+    ctx.globalAlpha = 1
+
     // 레인 배경 — 스크래치와 파란 건반만 살짝 어둡게 깔아 열이 구분되게
     for (const [col, g] of geom) {
       const v = laneVar(col, data)
@@ -118,6 +128,7 @@ export function createPlayView(canvas) {
     },
     setTime(t) { time = t; draw() },
     setHispeed(v) { hispeed = v; draw() },
+    setSegs(segs) { if (data) { data.segs = segs; draw() } },
     draw,
   }
 }
