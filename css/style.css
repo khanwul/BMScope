@@ -68,14 +68,15 @@ h3 .dim { font-weight: 400; margin-left: 8px; }
 
 #saved { display: flex; align-items: flex-start; justify-content: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 #saved > label { margin-top: 7px; color: var(--dim); font-size: 12px; }
-#saved-picker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; flex: 1 1 320px; max-width: 520px; min-width: 0; }
-#saved-picker input, #saved-picker select, #saved-picker button {
+#saved-picker { display: grid; gap: 4px; flex: 1 1 320px; max-width: 520px; min-width: 0; }
+#saved-picker input, #saved-picker select, #saved > button {
   padding: 6px 10px; font: inherit; color: var(--fg); background: var(--panel);
   border: 1px solid var(--grid); border-radius: 6px;
 }
-#saved-charts { grid-column: 1 / -1; width: 100%; min-width: 0; }
-#saved-picker button { cursor: pointer; }
-#saved-picker button:hover { border-color: var(--accent); }
+#saved-charts { display: none; width: 100%; min-width: 0; }
+#saved-picker:focus-within #saved-charts:not(:empty) { display: block; }
+#saved > button { cursor: pointer; }
+#saved > button:hover { border-color: var(--accent); }
 
 #error {
   margin: 12px 0 0; padding: 10px 14px; font-size: 13px;

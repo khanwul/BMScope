@@ -444,7 +444,6 @@ async function loadSavedCharts(query = '') {
       option.textContent = chartLabel(chart)
       list.append(option)
     }
-    list.hidden = !charts.length
     $('saved').hidden = false
   } catch {
     if (request === savedRequest) $('saved').hidden = true
