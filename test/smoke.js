@@ -40,7 +40,9 @@ const control = (key, value, checked = false) => ({
   addEventListener(type, fn) { listeners.set(`${key}:${type}`, fn) },
 })
 const controls = {
-  'input[name=mode]': [control('mode:overview', 'overview', true), control('mode:play', 'play')],
+  'input[name=mode]': [
+    control('mode:overview', 'overview', true), control('mode:play', 'play'), control('mode:ir', 'ir'),
+  ],
   '.axis-control': [
     control('overview-axis:measures', 'measures', true), control('overview-axis:seconds', 'seconds'),
     control('play-axis:measures', 'measures', true), control('play-axis:seconds', 'seconds'),
@@ -136,18 +138,34 @@ assert.equal(cache.get('title').textContent, 'BMScope Demo')
 assert.match(cache.get('stats').innerHTML, /<dt>노트<\/dt>/)
 assert.match(cache.get('segments').innerHTML, /class="tag tag-/)
 assert.match(cache.get('badges').innerHTML, /7K/)
+assert.equal(fetched.some(x => String(x).startsWith('/api/ir/')), false, 'IR 탭을 열기 전에 조회한다')
+
+// IR은 별도 탭이며 처음 열 때만 지연 조회한다.
+listeners.get('mode:ir:change')({ target: controls['input[name=mode]'][2] })
+assert.equal(cache.get('overview-view').hidden, true)
+assert.equal(cache.get('play-view').hidden, true)
+assert.equal(cache.get('ir-view').hidden, false)
 assert.match(cache.get('bmsir-link').href, /songmd5=0d98fe8171ebfb82310d89ffc0320dfa/, '원본 MD5로 IR 링크를 만들지 않는다')
 assert.match(cache.get('lr2archive-link').href, /lr2ir\.com\/charts\/0d98fe8171ebfb82310d89ffc0320dfa/)
 assert.match(cache.get('mocha-link').href, /title=BMScope%20Demo/)
 assert.ok(fetched.some(x => /\/api\/ir\/[\da-f]{32}\?sha256=[\da-f]{64}&client=lr2/.test(x)), 'MD5·SHA-256·클라이언트로 IR을 조회하지 않는다')
+await new Promise(setImmediate)
+assert.match(cache.get('ir-other').innerHTML, /class="ir-compare"/, 'IR 비교표가 렌더링되지 않는다')
+const practice = cache.get('ir-practice').innerHTML.match(/data-ir-seg="(\d+)"/)
+assert.ok(practice, '분석 태그 기반 연습 구간이 나오지 않는다')
+listeners.get('ir-practice:click')({ target: { closest: () => ({ dataset: { irSeg: practice[1] } }) } })
+assert.equal(cache.get('play-view').hidden, false, '연습 구간 클릭이 재생 탭으로 이동하지 않는다')
+assert.equal(cache.get('clear-range').hidden, false, '연습 구간 클릭이 반복 범위를 잡지 않는다')
 
-// 상단 탭은 분석과 재생 묶음 전체를 바꾸고, 돌아와도 같은 커서를 유지한다.
+// 상단 탭은 세 화면 묶음 전체를 바꾸고, 돌아와도 같은 커서를 유지한다.
 listeners.get('mode:play:change')({ target: controls['input[name=mode]'][1] })
 assert.equal(cache.get('overview-view').hidden, true)
 assert.equal(cache.get('play-view').hidden, false)
+assert.equal(cache.get('ir-view').hidden, true)
 listeners.get('mode:overview:change')({ target: controls['input[name=mode]'][0] })
 assert.equal(cache.get('overview-view').hidden, false)
 assert.equal(cache.get('play-view').hidden, true)
+assert.equal(cache.get('ir-view').hidden, true)
 
 // 구간 목록도 타임라인 밴드처럼 한 번 클릭으로 재생 구간을 잡는다.
 listeners.get('segments:click')({ target: { closest: () => ({ dataset: { seg: '0' } }) } })

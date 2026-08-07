@@ -52,6 +52,7 @@
         <span class="seg">
           <label><input type="radio" name="mode" value="overview" checked>채보 전체</label>
           <label><input type="radio" name="mode" value="play">재생</label>
+          <label><input type="radio" name="mode" value="ir">IR</label>
         </span>
       </nav>
 
@@ -95,6 +96,10 @@
           </div>
         </section>
 
+      </div>
+
+      <div id="ir-view" class="view" hidden>
+
         <section class="panel" id="ir">
           <h3>IR · 실전 데이터 <span class="dim">파일 해시로 조회 · 점수는 전송하지 않음</span></h3>
           <div id="ir-tools">
@@ -125,7 +130,7 @@
           </div>
           <p id="ir-status" class="dim">조회 중…</p>
           <div id="ir-content" class="ir-cols" hidden>
-            <div>
+            <div class="ir-community">
               <h4>커뮤니티</h4>
               <dl id="ir-stats"></dl>
               <div id="ir-lamps"></div>
@@ -140,7 +145,9 @@
               <ol id="ir-recent"></ol>
             </div>
             <div>
-              <h4>연습 후보 <span id="ir-focus" class="dim"></span></h4>
+              <h4>패턴 연습 <span id="ir-focus" class="dim"></span></h4>
+              <ul id="ir-practice"></ul>
+              <h4 class="ir-next">다음 채보</h4>
               <ol id="ir-recommend"></ol>
             </div>
             <div>

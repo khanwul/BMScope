@@ -9,7 +9,7 @@ import { extract, trillRatio, FEATURE_NAMES } from '../js/features.js'
 import { boundaries, segments, SEG_FEATURES } from '../js/segment.js'
 import { classify, refine, tagSegments } from '../js/tagger.js'
 import { createPlayer } from '../js/player.js'
-import { hashes, md5, progression, recommend, summarizePBs } from '../js/ir.js'
+import { hashes, irComparison, md5, practiceSegments, progression, recommend, summarizePBs } from '../js/ir.js'
 
 const run = (text, name = 'x.bms') => {
   const parsed = parse(text, { name })
@@ -42,6 +42,32 @@ const run = (text, name = 'x.bms') => {
     { timeAchieved: '2026-01-01', scoreData: { percent: 60, score: 1200 } },
     { timeAchieved: '2026-01-02', scoreData: { percent: 55, score: 1100 } },
   ]).map(x => x.percent), [60, 80], 'PB 성장선은 시간순 최고기록만 남긴다')
+
+  const comparison = irComparison({
+    localMaxEx: 200,
+    bms: { client: 'lr2', song: { found: true, stats: { players: '20', averageScore: '87.50%', topEx: '190' } } },
+    minir: { players: 10, average: 80, topEx: 170, maxEx: 198 },
+    tachi: { chart: {}, pbs: { players: 8, average: 85, top: 188 } },
+    archive: { players: 30, topEx: 195, maxEx: 200 },
+  })
+  assert.equal(comparison[0].average, 87.5)
+  assert.equal(comparison[0].basis, 'hash')
+  assert.equal(comparison[1].comparable, false)
+  assert.equal(comparison[1].topEx, null, '최대 EX가 다른 MinIR 점수는 비교에서 제외')
+  assert.equal(comparison[3].topEx, 195)
+  assert.equal(irComparison({
+    localMaxEx: 200, randomized: true,
+    bms: { song: { found: true, stats: { averageScore: '90%', topEx: 190 } } },
+    tachi: { chart: {}, pbs: { average: 90, top: 190 } },
+  })[0].comparable, false, '#RANDOM 채보는 같은 파일 해시만으로 최대 EX 일치를 단정하지 않는다')
+
+  assert.deepEqual(practiceSegments([
+    { t0: 0, t1: 5, tags: ['rest'], peakNps: 1 },
+    { t0: 5, t1: 10, tags: ['trill'], peakNps: 8 },
+    { t0: 10, t1: 16, tags: ['jack', 'chord'], peakNps: 10 },
+  ], 75, 82).map(x => [x.index, x.tags, x.gap]), [
+    [2, ['jack', 'chord'], 7], [1, ['trill'], 7],
+  ], '패턴 구간은 밀도순이며 개인 PB와 커뮤니티 격차를 함께 보존')
 }
 
 // ── 7K: 노트 · LN · 스크래치 · BPM 변화 · STOP · 마디 집계 ────────────────────

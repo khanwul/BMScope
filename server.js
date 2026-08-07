@@ -61,8 +61,12 @@ const MINIR_LAMPS = ['NOPLAY', 'FAILED', 'ASSIST EASY', 'LIGHT ASSIST EASY', 'EA
 
 export function summarizeMinIr(rows) {
   if (!Array.isArray(rows) || !rows.length) return null
-  const scores = rows.filter(x => Number.isFinite(+x.score) && Number.isFinite(+x.notes) && +x.notes > 0)
-  if (!scores.length) return null
+  const valid = rows.filter(x => Number.isFinite(+x.score) && Number.isFinite(+x.notes) && +x.notes > 0)
+  if (!valid.length) return null
+  const counts = new Map()
+  for (const x of valid) counts.set(+x.notes * 2, (counts.get(+x.notes * 2) || 0) + 1)
+  const maxEx = [...counts].sort((a, b) => b[1] - a[1])[0][0]
+  const scores = valid.filter(x => +x.notes * 2 === maxEx)
   const percentages = scores.map(x => +x.score / (+x.notes * 2) * 100)
   const lamps = {}
   for (const x of scores) {
@@ -74,6 +78,7 @@ export function summarizeMinIr(rows) {
   return {
     players: new Set(scores.map(x => x.userid).filter(Boolean)).size || scores.length,
     scores: scores.length,
+    maxEx,
     average: percentages.reduce((a, b) => a + b, 0) / percentages.length,
     topEx: Math.max(...scores.map(x => +x.score)),
     maxCombo: Math.max(...scores.map(x => +x.combo || 0)),

@@ -84,6 +84,52 @@ export function progression(scores = []) {
     }, [])
 }
 
+const numeric = value => {
+  if (value == null || value === '') return null
+  const number = +String(value).replace(/[,\s%]/g, '')
+  return Number.isFinite(number) ? number : null
+}
+
+/** 같은 최대 EX인 기록만 한 표에서 직접 비교한다. */
+export function irComparison({ localMaxEx, bms, minir, tachi, archive, randomized = false }) {
+  const local = numeric(localMaxEx)
+  const row = (source, available, players, average, topEx, maxEx, exactHash = false) => {
+    const max = exactHash ? local : numeric(maxEx)
+    const comparable = available ? (exactHash || (local != null && max === local)) : null
+    return {
+      source, available, players: numeric(players), maxEx: max, comparable,
+      basis: !available ? null : exactHash ? 'hash' : max == null ? 'unknown' : comparable ? 'max-ex' : 'mismatch',
+      average: comparable ? numeric(average) : null,
+      topEx: comparable ? numeric(topEx) : null,
+    }
+  }
+  const bmsFound = !!bms?.song?.found
+  const tachiFound = !!tachi?.chart
+  return [
+    row(`BMS-IR${bms?.client ? ` (${bms.client})` : ''}`, bmsFound,
+      bms?.song?.stats?.players, bms?.song?.stats?.averageScore, bms?.song?.stats?.topEx, null, !randomized),
+    row('MinIR', !!minir, minir?.players, minir?.average, minir?.topEx, minir?.maxEx),
+    row('Bokutachi', tachiFound, tachi?.pbs?.players, tachi?.pbs?.average, tachi?.pbs?.top, null, !randomized),
+    row('구 LR2IR', !!archive, archive?.players, null, archive?.topEx, archive?.maxEx),
+  ]
+}
+
+/** 실제 태그가 붙은 구간 중 순간 밀도가 높은 곳을 우선 연습 구간으로 고른다. */
+export function practiceSegments(segments = [], personalPercent = null, communityPercent = null) {
+  const personal = numeric(personalPercent), community = numeric(communityPercent)
+  const gap = personal != null && community != null ? community - personal : null
+  return segments
+    .map((segment, index) => ({
+      index, t0: segment.t0, t1: segment.t1,
+      tags: (segment.tags || []).filter(tag => !['rest', 'mix'].includes(tag)),
+      peakNps: numeric(segment.peakNps) || 0,
+    }))
+    .filter(segment => segment.tags.length && segment.t1 > segment.t0)
+    .sort((a, b) => b.peakNps - a.peakNps || (b.t1 - b.t0) - (a.t1 - a.t0) || a.t0 - b.t0)
+    .slice(0, 3)
+    .map(segment => ({ ...segment, gap }))
+}
+
 function levelKey(chart) {
   const m = String(chart?.data?.aiLevel || '').match(/^([^\d-]*)(-?\d+(?:\.\d+)?)$/)
   return m && { prefix: m[1], value: +m[2] }

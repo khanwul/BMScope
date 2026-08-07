@@ -8,7 +8,7 @@ import { refine, tagSegments } from './tagger.js'
 import { createTimeline } from './timeline.js'
 import { createOverview, createPlayView, HISPEED_1X } from './preview.js'
 import { createPlayer } from './player.js'
-import { loadTachi } from './ir.js'
+import { irComparison, loadTachi, practiceSegments } from './ir.js'
 
 const $ = id => document.getElementById(id)
 // 두 탭에 같은 노브가 하나씩 있다. 값은 하나이므로 클래스로 한꺼번에 잡는다.
@@ -63,7 +63,8 @@ let mode = 'overview'
 function setCursor(t) {
   cursor = t
   timeline.setTime(t)
-  ;(mode === 'play' ? playView : overview).setTime(t)
+  if (mode === 'play') playView.setTime(t)
+  else if (mode === 'overview') overview.setTime(t)
   showRange()
   const seg = current?.segs.find(s => t >= s.t0 && t < s.t1)
   $('seg-now').innerHTML = seg ? seg.tags.map(t => `<span class="tag tag-${t}">${t}</span>`).join('') : ''
@@ -165,18 +166,23 @@ addEventListener('keydown', e => {
   selectSegment(ordered.find(s => dir > 0 ? s.t0 > cursor + 1e-3 : s.t0 < cursor - 1e-3))
 })
 
-$$('input[name=mode]').forEach(r =>
-  r.addEventListener('change', e => {
-    mode = e.target.value
-    const play = mode === 'play'
-    $('overview-view').hidden = play
-    $('play-view').hidden = !play
-    // 켜지는 쪽 캔버스는 방금까지 0×0 이라 안 그려졌다 — 여기서 채운다.
-    // 재생은 모드와 무관하다 — 전체 보기로 넘어와도 그대로 흐른다.
-    redraw()
-    syncTransport()
-    setCursor(cursor)
-  }))
+function setMode(next) {
+  mode = next
+  $('overview-view').hidden = mode !== 'overview'
+  $('play-view').hidden = mode !== 'play'
+  $('ir-view').hidden = mode !== 'ir'
+  if (mode === 'ir') {
+    if (current && !current.ir && !current.irLoading) loadIrData()
+    return
+  }
+  // 켜지는 쪽 캔버스는 방금까지 0×0 이라 안 그려졌다 — 여기서 채운다.
+  // 재생은 모드와 무관하다 — 전체 보기로 넘어와도 그대로 흐른다.
+  redraw()
+  syncTransport()
+  setCursor(cursor)
+}
+
+$$('input[name=mode]').forEach(r => r.addEventListener('change', e => setMode(e.target.value)))
 
 async function show(file, random = 1) {
   cursor = 0
@@ -248,8 +254,11 @@ async function show(file, random = 1) {
     ? `경고 ${parsed.warnings.length}건: ${parsed.warnings.slice(0, 3).map(w => `${w.lineNumber}행 ${w.message}`).join(' / ')}`
     : ''
 
+  $('ir-content').hidden = true
+  $('ir-status').textContent = 'IR 탭을 열면 조회합니다.'
+  $('bokutachi-link').hidden = true
   redraw()
-  loadIrData()
+  if (mode === 'ir') loadIrData()
 }
 
 // ── 외부 IR ─────────────────────────────────────────────────────────────
@@ -325,13 +334,21 @@ function renderIr() {
   const minir = bms?.minir
   const archive = bms?.archive
   const timing = minir?.timing
-  $('ir-other').innerHTML = [
-    minir && `<div class="ir-source"><strong>MinIR</strong> · ${minir.players}명 · 평균 ${minir.average.toFixed(2)}% · 최고 EX ${minir.topEx.toLocaleString()}` +
-      `${timing ? `<br><span class="dim">EARLY ${timing.earlyPercent.toFixed(1)}% · LATE ${(100 - timing.earlyPercent).toFixed(1)}%</span>` : ''}</div>`,
-    archive && `<div class="ir-source"><strong>구 LR2IR</strong> · ${archive.players.toLocaleString()}명 · ${archive.plays.toLocaleString()}회 · ` +
-      `클리어 ${archive.players ? (archive.clearPlayers / archive.players * 100).toFixed(1) : '0.0'}% · 최고 EX ${archive.topEx?.toLocaleString() ?? '-'}` +
-      `${archive.maxEx && archive.maxEx !== current.stats.counts.maxEx ? '<br><span class="dim">현재 파일과 최대 EX가 달라 직접 순위 비교 제외</span>' : ''}</div>`,
-  ].filter(Boolean).join('')
+  const comparison = irComparison({
+    localMaxEx: current.stats.counts.maxEx, bms, minir, tachi, archive,
+    randomized: current.parsed.randomMax > 1,
+  })
+  $('ir-other').innerHTML = `<table class="ir-compare"><thead><tr><th>IR</th><th>인원</th><th>평균</th><th>최고 EX</th><th>최대 EX</th></tr></thead><tbody>${comparison.map(row => {
+    const source = row.source.startsWith('BMS-IR') ? `BMS-IR (${IR_CLIENTS[bms?.client] || bms?.client || '-'})` : row.source
+    const status = !row.available ? '미등록' : row.basis === 'hash' ? `${row.maxEx?.toLocaleString() ?? '?'} (해시)` :
+      row.comparable ? `${row.maxEx?.toLocaleString() ?? '?'} (일치)` : `${row.maxEx?.toLocaleString() ?? '?'} (제외)`
+    return `<tr class="${row.comparable === false ? 'excluded' : ''}"><th>${esc(source)}</th>` +
+      `<td>${row.players?.toLocaleString() ?? '—'}</td><td>${row.average == null ? '—' : `${row.average.toFixed(2)}%`}</td>` +
+      `<td>${row.topEx?.toLocaleString() ?? '—'}</td><td title="${row.comparable === false ? `현재 파일 최대 EX ${current.stats.counts.maxEx}` : ''}">${status}</td></tr>`
+  }).join('')}</tbody></table>` + [
+    timing && `MinIR 판정: EARLY ${timing.earlyPercent.toFixed(1)}% · LATE ${(100 - timing.earlyPercent).toFixed(1)}%`,
+    archive && `구 LR2IR: ${archive.plays.toLocaleString()}회 · 클리어 ${archive.players ? (archive.clearPlayers / archive.players * 100).toFixed(1) : '0.0'}%`,
+  ].filter(Boolean).map(note => `<p class="dim ir-note">${note}</p>`).join('')
 
   const pb = tachi?.personal
   $('ir-personal').innerHTML = pb
@@ -357,10 +374,24 @@ function renderIr() {
       `<span class="dim">${esc(x.level)} · ${esc(x.scoreData.lamp)} ${x.scoreData.percent.toFixed(2)}%</span></li>`).join('')
     : ''
 
-  const tagCounts = current.segs.flatMap(x => x.tags).filter(x => !['rest', 'mix'].includes(x))
-    .reduce((m, x) => m.set(x, (m.get(x) || 0) + 1), new Map())
-  const focus = [...tagCounts].sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0])
-  $('ir-focus').textContent = focus.length ? `초점: ${focus.join(' · ')}` : ''
+  const peakIndex = current.wf.names.indexOf('peak_nps')
+  const candidates = current.segs.map(segment => ({
+    ...segment,
+    peakNps: peakIndex < 0 ? 0 : current.wf.X.slice(segment.a, segment.b)
+      .reduce((max, row) => Math.max(max, Number.isFinite(row[peakIndex]) ? row[peakIndex] : 0), 0),
+  }))
+  const baseline = comparison.find(row => row.available && row.comparable && row.average != null)?.average ?? null
+  const practice = practiceSegments(candidates, pb?.scoreData?.percent, baseline)
+  const focusTags = [...new Set(practice.flatMap(x => x.tags))].slice(0, 3)
+  const gap = practice[0]?.gap
+  const gapLabel = !pb ? '내 기록 없음' : gap == null ? '비교 평균 없음' :
+    `평균 대비 ${gap > 0 ? '-' : '+'}${Math.abs(gap).toFixed(2)}%p`
+  $('ir-focus').textContent = [gapLabel, focusTags.length && `초점 ${focusTags.join(' · ')}`].filter(Boolean).join(' · ')
+  $('ir-practice').innerHTML = practice.length
+    ? practice.map(x => `<li><button type="button" class="ir-practice" data-ir-seg="${x.index}">` +
+      `<strong>${mmss(x.t0)}–${mmss(x.t1)}</strong> ${x.tags.map(tag => `<span class="tag tag-${tag}">${tag}</span>`).join('')}` +
+      `<span class="dim">최대 ${x.peakNps.toFixed(1)} nps · 클릭해 반복 재생</span></button></li>`).join('')
+    : '<li class="dim">집중 연습할 패턴 구간 없음</li>'
   $('ir-recommend').innerHTML = tachi?.recommendations?.length
     ? tachi.recommendations.map(x => `<li><a href="${x.url}" target="_blank" rel="noopener">${esc(x.title)}</a> ` +
       `<span class="dim">${esc(x.level)}${x.played ? ' · 최근 플레이' : ''}</span></li>`).join('')
@@ -389,8 +420,19 @@ function renderIr() {
   }
 }
 
+$('ir-practice').addEventListener('click', e => {
+  const button = e.target.closest('[data-ir-seg]')
+  const segment = button && current?.segs[+button.dataset.irSeg]
+  if (!segment) return
+  selectSegment(segment)
+  for (const radio of $$('input[name=mode]')) radio.checked = radio.value === 'play'
+  setMode('play')
+  seekTo(segment.t0)
+})
+
 async function loadIrData() {
   if (!current) return
+  current.irLoading = true
   const request = ++irRequest
   const { hashes } = current.parsed
   const client = irClient()
@@ -408,6 +450,7 @@ async function loadIrData() {
     fetch(`/api/ir/${hashes.md5}?sha256=${hashes.sha256}&client=${client}`).then(r => r.ok ? r.json() : Promise.reject(new Error())),
   ])
   if (request !== irRequest || current?.parsed.hashes.md5 !== hashes.md5) return
+  current.irLoading = false
   current.ir = {
     tachi: tachi.status === 'fulfilled' ? tachi.value : null,
     bmsir: bmsir.status === 'fulfilled' ? bmsir.value : null,
@@ -456,7 +499,7 @@ function drawCharts() {
 }
 
 function redraw() {
-  if (!current) return
+  if (!current || mode === 'ir') return
   const { lanes, segs } = current
   const byMeasure = axis === 'measures'
 

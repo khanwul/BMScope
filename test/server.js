@@ -79,9 +79,11 @@ assert.deepEqual(parseBmsIrPopular(popularHtml), [{
 const minirRows = [
   { userid: 'a', score: 180, notes: 100, combo: 90, clear: 6, epg: 10, egr: 5, lpg: 4, lgr: 1 },
   { userid: 'b', score: 120, notes: 100, combo: 70, clear: 4, epg: 5, egr: 0, lpg: 10, lgr: 0 },
+  { userid: 'variant', score: 190, notes: 99, combo: 99, clear: 8 },
 ]
 const minirSummary = summarizeMinIr(minirRows)
 assert.equal(minirSummary.players, 2)
+assert.equal(minirSummary.maxEx, 200)
 assert.equal(minirSummary.average, 75)
 assert.equal(minirSummary.topEx, 180)
 assert.deepEqual(minirSummary.lamps, { HARD: 1, EASY: 1 })
