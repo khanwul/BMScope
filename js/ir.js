@@ -1,6 +1,6 @@
-const TACHI = 'https://boku.tachi.ac'
+import { numeric } from './analyze.js'
 
-const hex = bytes => [...bytes].map(b => b.toString(16).padStart(2, '0')).join('')
+const TACHI = 'https://boku.tachi.ac'
 
 /** Web Crypto가 지원하지 않는 MD5는 IR 식별용으로만 최소 구현한다. */
 export function md5(buffer) {
@@ -35,11 +35,11 @@ export function md5(buffer) {
 
   const out = new Uint8Array(16), result = new DataView(out.buffer)
   ;[a0, b0, c0, d0].forEach((v, i) => result.setUint32(i * 4, v, true))
-  return hex(out)
+  return out.toHex()
 }
 
 export async function hashes(buffer) {
-  return { md5: md5(buffer), sha256: hex(new Uint8Array(await crypto.subtle.digest('SHA-256', buffer))) }
+  return { md5: md5(buffer), sha256: new Uint8Array(await crypto.subtle.digest('SHA-256', buffer)).toHex() }
 }
 
 export const irGame = mode => mode === '14K' || mode === '10K'
@@ -82,12 +82,6 @@ export function progression(scores = []) {
       }
       return out
     }, [])
-}
-
-const numeric = value => {
-  if (value == null || value === '') return null
-  const number = +String(value).replace(/[,\s%]/g, '')
-  return Number.isFinite(number) ? number : null
 }
 
 /** 같은 최대 EX인 기록만 한 표에서 직접 비교한다. */

@@ -6,11 +6,13 @@ import { hashes } from './ir.js'
 const ENCODINGS = ['utf-8', 'shift-jis', 'euc-kr']
 
 export function decode(buf) {
+  let sjis // 전부 깨지면 여기로 — 앞에서 이미 디코드한 걸 다시 풀지 않는다
   for (const enc of ENCODINGS) {
     const text = new TextDecoder(enc).decode(buf)
     if (!text.includes('�')) return { text, encoding: enc }
+    if (enc === 'shift-jis') sjis = { text, encoding: enc }
   }
-  return { text: new TextDecoder('shift-jis').decode(buf), encoding: 'shift-jis' }
+  return sjis
 }
 
 const EXTS = ['bms', 'bme', 'bml', 'pms']

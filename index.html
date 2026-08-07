@@ -56,26 +56,28 @@
         </span>
       </nav>
 
+      <!-- 하이스피드·레인·축은 두 화면이 같은 값 하나를 본다 — 컨트롤도 하나만 둔다. -->
+      <div id="view-controls" class="viewer-controls">
+        <label>하이스피드 <input type="range" id="hispeed" min="40" max="400" step="10" value="140">
+          <span id="hispeed-v">1.00×</span></label>
+        <label>레인 <input id="lane-order" type="text" autocomplete="off" spellcheck="false"></label>
+        <button id="lane-random" type="button">랜덤</button>
+        <span class="seg">
+          <label><input type="radio" name="axis" value="measures" checked>마디별</label>
+          <label><input type="radio" name="axis" value="seconds">시간별</label>
+        </span>
+      </div>
+
       <div id="overview-view" class="view">
         <section class="panel">
           <h3>채보 전체
             <span class="dim">끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그</span>
           </h3>
           <div id="overview-wrap"><canvas id="overview"></canvas></div>
-          <div id="overview-controls" class="viewer-controls">
-            <label>하이스피드 <input type="range" id="overview-hispeed" class="hispeed" min="40" max="400" step="10" value="140">
-              <span id="overview-hispeed-v" class="hispeed-v">1.00×</span></label>
-            <label>레인 <input id="overview-lane-order" class="lane-order" type="text" autocomplete="off" spellcheck="false"></label>
-            <button id="overview-lane-random" class="lane-random" type="button">랜덤</button>
-          </div>
         </section>
 
         <section class="panel">
           <h3>밀도
-            <span class="seg">
-              <label><input class="axis-control" type="radio" name="overview-axis" value="measures" checked>마디별</label>
-              <label><input class="axis-control" type="radio" name="overview-axis" value="seconds">시간별</label>
-            </span>
             <span class="dim">막대 = 종류별 노트 수 · 실선 = 순간 최대 밀도 · 파선 = BPM</span>
           </h3>
           <canvas id="density"></canvas>
@@ -105,10 +107,10 @@
           <div id="ir-tools">
             <nav id="ir-links" aria-label="외부 IR">
               <a id="bmsir-link" target="_blank" rel="noopener">BMS-IR</a>
-              <a id="minir-link" href="https://www.gaftalk.com/minir/" target="_blank" rel="noopener">MinIR</a>
+              <a href="https://www.gaftalk.com/minir/" target="_blank" rel="noopener">MinIR</a>
               <a id="lr2archive-link" target="_blank" rel="noopener">LR2IR Archive</a>
               <a id="mocha-link" target="_blank" rel="noopener">Mocha</a>
-              <a id="stellaverse-link" href="https://ir.stellabms.xyz/" target="_blank" rel="noopener">STELLAVERSE IR</a>
+              <a href="https://ir.stellabms.xyz/" target="_blank" rel="noopener">STELLAVERSE IR</a>
               <a id="bokutachi-link" target="_blank" rel="noopener" hidden>Bokutachi</a>
             </nav>
             <label>BMS-IR
@@ -167,12 +169,8 @@
           <div id="controls" class="viewer-controls">
             <button id="playpause" type="button">▶ 재생</button>
             <label class="chk"><input type="checkbox" id="loop" checked>구간 반복</label>
-            <label>하이스피드 <input type="range" id="hispeed" class="hispeed" min="40" max="400" step="10" value="140">
-              <span id="hispeed-v" class="hispeed-v">1.00×</span></label>
             <label>배속 <input type="range" id="rate" min="25" max="200" step="5" value="100">
               <span id="rate-v">1.00×</span></label>
-            <label>레인 <input id="lane-order" class="lane-order" type="text" autocomplete="off" spellcheck="false"></label>
-            <button id="lane-random" class="lane-random" type="button">랜덤</button>
             <span id="seg-now" class="dim"></span>
           </div>
         </section>
@@ -191,10 +189,6 @@
             <span class="seg">
               <label><input type="radio" name="segmode" value="texture">텍스처</label>
               <label><input type="radio" name="segmode" value="fine" checked>세분화</label>
-            </span>
-            <span class="seg">
-              <label><input class="axis-control" type="radio" name="play-axis" value="measures" checked>마디별</label>
-              <label><input class="axis-control" type="radio" name="play-axis" value="seconds">시간별</label>
             </span>
             <span id="seg-count" class="dim"></span>
             <span class="dim">bmspc 이식 · 임계값은 7K 기준 튜닝 (DP/PMS는 미검증)</span>

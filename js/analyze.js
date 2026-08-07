@@ -1,4 +1,9 @@
-const num = (v, d = 0) => (v == null || v === '' || isNaN(+v) ? d : +v)
+/** 헤더·IR 응답의 느슨한 숫자. 자릿수 쉼표·공백·`%` 를 떼고, 숫자가 아니면 `fallback`. */
+export function numeric(value, fallback = null) {
+  if (value == null || value === '') return fallback
+  const number = +String(value).replace(/[,\s%]/g, '')
+  return Number.isFinite(number) ? number : fallback
+}
 
 /** BPM 구간 목록. 각 구간의 길이는 (박 수 × 60 / BPM) 이므로 STOP 시간이 섞이지 않는다. */
 function bpmSegments({ timing }, totalBeats) {
@@ -28,7 +33,7 @@ function bpmStats(parsed, lanes) {
 
   const all = segs.map(s => s.bpm)
   return {
-    initial: num(chart.headers.get('bpm'), 130),
+    initial: numeric(chart.headers.get('bpm'), 130),
     min: all.length ? Math.min(...all) : 0,
     max: all.length ? Math.max(...all) : 0,
     main: main ? +main[0] : 0,
@@ -160,8 +165,8 @@ export function analyze(parsed, lanes) {
 
   return {
     info: { ...info, subtitle: info.subtitles.join(' '),
-      rank: num(chart.headers.get('rank'), 3),
-      total: num(chart.headers.get('total')) },
+      rank: numeric(chart.headers.get('rank'), 3),
+      total: numeric(chart.headers.get('total'), 0) },
     mode: lanes.mode,
     duration: end,
     counts: {

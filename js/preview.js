@@ -1,8 +1,9 @@
 // 채보 프리뷰 — 전체 보기 모드. 마디를 세로 컬럼으로 쌓아 좌→우로 나열한다(악보식).
 // 스크롤 없이 전곡 구조가 보이고, 구간 태그를 배경색으로 깐다.
 //
-// 좌표계는 `레인 → x`, `박 → y`(아래에서 위로). 재생 모드가 같은 좌표계를 쓰므로 노트
-// 그리기를 공유한다. 레인 배치(`laneOrder`/`laneGeom`)는 `lanes.js` — 레인별 분포도 같이 쓴다.
+// 좌표계는 `레인 → x`, `박 → y`(아래에서 위로). 재생 모드가 같은 좌표계를 쓰므로 LN 몸통은
+// `drawBody` 하나로 공유한다(머리는 높이 규칙이 달라 각자 그린다).
+// 레인 배치(`laneOrder`/`laneGeom`)는 `lanes.js` — 레인별 분포도 같이 쓴다.
 // 타임라인(`timeline.js`)은 `시간 → x`, `레인 → y` 라 좌표계가 아예 다르다 — 공유하지 않는다.
 import { css, fit, offscreen } from './charts.js'
 import { laneGeom, laneVar } from './lanes.js'
@@ -13,6 +14,15 @@ const MAX_SCALE = 7  // 재생 모드 레인 확대 상한
 // 슬라이더 기본값. 재생 모드는 px/position, 전체 보기는 이걸 1배로 본 배율 — 표시도 배율로 한다
 export const HISPEED_1X = 140
 const MAX_CANVAS = 16384 // px. 넘기면 브라우저가 컨텍스트를 통째로 비운다
+
+/** LN 몸통 — 머리(`y`)에서 끝(`yEnd`, 위쪽)까지 흐리게. 뒤집힌 구간이면 안 그린다. */
+function drawBody(ctx, color, x, w, y, yEnd, alpha) {
+  if (y <= yEnd) return
+  ctx.globalAlpha = alpha
+  ctx.fillStyle = color
+  ctx.fillRect(x, yEnd, w, y - yEnd)
+  ctx.globalAlpha = 1
+}
 
 /** 1P/2P 구분선. 레인 배경보다 진하게 — 여기가 손이 갈리는 지점이라 한눈에 보여야 한다. */
 function drawSplit(ctx, x, y, h) {
@@ -99,16 +109,8 @@ export function createPlayView(canvas) {
       const g = geom.get(n.col)
       if (!g) continue
       const color = css(laneVar(n.col, data))
-      if (n.isLN) {
-        const yEnd = Math.max(yOf(n.endBeat), -8)
-        const yStart = Math.min(y, judgeY)
-        if (yStart > yEnd) {
-          ctx.globalAlpha = 0.4
-          ctx.fillStyle = color
-          ctx.fillRect(x0 + g.x, yEnd, g.w - gap, yStart - yEnd)
-          ctx.globalAlpha = 1
-        }
-      }
+      // 몸통은 판정선에서 자른다 — 머리가 지나가도 남은 몸통은 계속 보여야 한다
+      if (n.isLN) drawBody(ctx, color, x0 + g.x, g.w - gap, Math.min(y, judgeY), Math.max(yOf(n.endBeat), -8), 0.4)
       if (y > judgeY) continue // 판정선을 지난 머리는 지운다
       ctx.fillStyle = color
       ctx.fillRect(x0 + g.x, y - noteH, g.w - gap, noteH)
@@ -224,12 +226,7 @@ export function createOverview(canvas, { onSelect, onSeek } = {}) {
       if (n.isLN) {
         // 컬럼 위쪽에서 자른다. 경계에 정확히 끝나면 다음 컬럼으로 넘어가므로 앱실론을 뺀다.
         const e = place(Math.min(n.endBeat, (p.c + 1) * L.beatsPerCol - 1e-9), L)
-        if (e && e.c === p.c) {
-          ctx.globalAlpha = 0.35
-          ctx.fillStyle = color
-          ctx.fillRect(p.x0 + g.x, e.y, g.w - 1, p.y - e.y)
-          ctx.globalAlpha = 1
-        }
+        if (e && e.c === p.c) drawBody(ctx, color, p.x0 + g.x, g.w - 1, p.y, e.y, 0.35)
       }
       ctx.fillStyle = color
       ctx.fillRect(p.x0 + g.x, p.y - 2, g.w - 1, 2)

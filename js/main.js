@@ -11,7 +11,6 @@ import { createPlayer } from './player.js'
 import { irComparison, loadTachi, practiceSegments } from './ir.js'
 
 const $ = id => document.getElementById(id)
-// 두 탭에 같은 노브가 하나씩 있다. 값은 하나이므로 클래스로 한꺼번에 잡는다.
 const $$ = selector => document.querySelectorAll(selector)
 const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 const r1 = n => n.toFixed(1)
@@ -93,11 +92,9 @@ $('loop').addEventListener('change', e => player.setLoop(e.target.checked))
 function setHispeed(v) {
   playView.setHispeed(v)
   overview.setHispeed(v)
-  const label = (v / HISPEED_1X).toFixed(2) + '×'
-  for (const el of $$('.hispeed')) el.value = v
-  for (const el of $$('.hispeed-v')) el.textContent = label
+  $('hispeed-v').textContent = (v / HISPEED_1X).toFixed(2) + '×'
 }
-for (const el of $$('.hispeed')) el.addEventListener('input', e => setHispeed(+e.target.value))
+$('hispeed').addEventListener('input', e => setHispeed(+e.target.value))
 $('rate').addEventListener('input', e => {
   const v = +e.target.value / 100
   player.setRate(v)
@@ -112,13 +109,12 @@ function loadPlayerViews(notes) {
   player.load({ ...view, duration: stats.duration })
 }
 
-function applyLaneOrder(spec, input = $$('.lane-order')[0]) {
+function applyLaneOrder(spec) {
+  const input = $('lane-order')
   try {
     const notes = remapLanes(current.lanes.notes, current.lanes, spec)
-    for (const el of $$('.lane-order')) {
-      el.setCustomValidity('')
-      el.value = spec.replace(/\s/g, '')
-    }
+    input.setCustomValidity('')
+    input.value = spec.replace(/\s/g, '')
     const time = player.now(), wasPlaying = player.playing(), range = timeline.getRange()
     loadPlayerViews(notes)
     timeline.setNotes(notes)
@@ -135,15 +131,12 @@ function applyLaneOrder(spec, input = $$('.lane-order')[0]) {
   }
 }
 
-for (const el of $$('.lane-order')) {
-  el.addEventListener('input', e => e.currentTarget.setCustomValidity(''))
-  el.addEventListener('change', e => applyLaneOrder(e.currentTarget.value, e.currentTarget))
-  el.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
-  })
-}
-for (const el of $$('.lane-random'))
-  el.addEventListener('click', () => applyLaneOrder(randomLaneSpec(current.lanes)))
+$('lane-order').addEventListener('input', e => e.currentTarget.setCustomValidity(''))
+$('lane-order').addEventListener('change', e => applyLaneOrder(e.currentTarget.value))
+$('lane-order').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+})
+$('lane-random').addEventListener('click', () => applyLaneOrder(randomLaneSpec(current.lanes)))
 
 function selectSegment(seg) {
   if (seg) timeline.setRange({ a: seg.t0, b: seg.t1 })
@@ -171,6 +164,7 @@ function setMode(next) {
   $('overview-view').hidden = mode !== 'overview'
   $('play-view').hidden = mode !== 'play'
   $('ir-view').hidden = mode !== 'ir'
+  $('view-controls').hidden = mode === 'ir' // IR 탭에는 그릴 캔버스가 없다
   if (mode === 'ir') {
     if (current && !current.ir && !current.irLoading) loadIrData()
     return
@@ -202,12 +196,8 @@ async function show(file, random = 1) {
   const view = { notes: lanes.notes, keyCols: lanes.keyCols, scratchCols: lanes.scratchCols, segs }
   timeline.load({ ...view, id: `${file.name}${file.size}:${parsed.randomChoice}`, duration: stats.duration })
   loadPlayerViews(lanes.notes)
-  const spec = laneSpec(lanes)
-  const laneTitle = lanes.scratchCols.length === 2 ? '1P/2P 순서 (예: 54321/12345)' : '레인 순서 (예: 54321)'
-  for (const el of $$('.lane-order')) {
-    el.value = spec
-    el.title = laneTitle
-  }
+  $('lane-order').value = laneSpec(lanes)
+  $('lane-order').title = lanes.scratchCols.length === 2 ? '1P/2P 순서 (예: 54321/12345)' : '레인 순서 (예: 54321)'
   syncTransport()
 
   const { info, bpm, counts, density } = stats
@@ -270,29 +260,11 @@ const mochaUrl = info => `https://mocha-repository.info/songs2.php?title=${encod
 function renderIrRandom() {
   if (!current) return
   const option = current.ir?.bmsir?.song?.topOption
-  const lane = $$('.lane-order')[0].value
+  const lane = $('lane-order').value
   const recorded = option?.match(/\b([1-7]{7})\b/)?.[1]
   $('ir-random').textContent = option
     ? `현재 레인 ${lane} · BMS-IR 선두 OP ${option}${recorded ? ` · ${lane === recorded ? '같은 배치' : '다른 배치'}` : ' · seed는 구동기별 해석'}`
     : `현재 레인 ${lane} · IR에 비교 가능한 RANDOM 배치 없음`
-}
-
-function irCardRows(data) {
-  const rows = []
-  const levels = [...new Set([
-    ...Object.entries(data.tachi?.levels || {}).map(([k, v]) => k + v),
-    ...(data.bmsir?.song?.found ? data.bmsir.song.levels : []),
-  ])]
-  if (levels.length) rows.push(['IR 난이도', levels.join(' · ')])
-  const s = data.bmsir?.song?.found ? data.bmsir.song.stats : null
-  if (+s?.players) rows.push([`BMS-IR (${IR_CLIENTS[data.bmsir.client]})`, `${s.players}명 · 평균 ${s.averageScore || '-'}`])
-  if (data.bmsir?.minir) rows.push(['MinIR', `${data.bmsir.minir.players}명 · 평균 ${data.bmsir.minir.average.toFixed(2)}%`])
-  if (data.bmsir?.archive) rows.push(['구 LR2IR', `${data.bmsir.archive.players.toLocaleString()}명 · ${data.bmsir.archive.plays.toLocaleString()}회`])
-  const pb = data.tachi?.personal
-  if (pb) rows.push(['내 PB', `${pb.scoreData.lamp} · ${pb.scoreData.percent.toFixed(2)}%`])
-  const weekly = data.bmsir?.popular?.find(x => x.md5 === current.parsed.hashes.md5)
-  if (weekly) rows.push(['주간 인기', `#${weekly.rank} · ${weekly.players}명`])
-  return rows
 }
 
 function renderIr() {
@@ -411,8 +383,17 @@ function renderIr() {
   if (tachi?.url) { $('bokutachi-link').href = tachi.url; $('bokutachi-link').hidden = false }
   renderIrRandom()
 
-  const added = irCardRows(data)
-  current.card.stats = [...current.card.stats.filter(([k]) => !k.startsWith('BMS-IR') && !['IR 난이도', 'MinIR', '구 LR2IR', '내 PB', '주간 인기'].includes(k)), ...added]
+  // 이미지 저장용 IR 행. 화면에 쓴 값 그대로 담고 분석 통계와는 따로 둔다 —
+  // 한 배열에 섞으면 다시 조회할 때마다 라벨 이름으로 걸러내야 한다.
+  const weekly = bms?.popular?.find(x => x.md5 === current.parsed.hashes.md5)
+  current.card.irStats = [
+    levels.length && ['IR 난이도', levels.join(' · ')],
+    +s?.players && [`BMS-IR (${IR_CLIENTS[bms.client]})`, `${s.players}명 · 평균 ${s.averageScore || '-'}`],
+    minir && ['MinIR', `${minir.players}명 · 평균 ${minir.average.toFixed(2)}%`],
+    archive && ['구 LR2IR', `${archive.players.toLocaleString()}명 · ${archive.plays.toLocaleString()}회`],
+    pb && ['내 PB', `${pb.scoreData.lamp} · ${pb.scoreData.percent.toFixed(2)}%`],
+    weekly && ['주간 인기', `#${weekly.rank} · ${weekly.players}명`],
+  ].filter(Boolean)
   if (levels.length && !current.irBadge) {
     current.irBadge = levels[0]
     $('badges').innerHTML += `<span class="badge hot">${esc(levels[0])}</span>`
@@ -537,6 +518,7 @@ $('save-image').addEventListener('click', async () => {
     title: $('title').textContent,
     byline: $('byline').textContent,
     ...current.card,
+    stats: [...current.card.stats, ...(current.card.irStats || [])],
     rows: [[$('overview')], [$('timeline')], [$('density')], [$('radar'), $('lanes')]],
     footer: `${currentFile.name} · BMScope`,
   })
@@ -587,12 +569,8 @@ $('copy-analysis').addEventListener('click', async e => {
   setTimeout(() => { e.currentTarget.textContent = label }, 1200)
 })
 
-$$('.axis-control').forEach(r =>
-  r.addEventListener('change', e => {
-    axis = e.target.value
-    $$('.axis-control').forEach(x => { x.checked = x.value === axis })
-    redraw()
-  }))
+$$('input[name=axis]').forEach(r =>
+  r.addEventListener('change', e => { axis = e.target.value; redraw() }))
 
 // 구간 방식을 바꾸면 태그 밴드·오버레이·목록이 전부 갈리므로 다시 계산해 셋 다 갱신한다.
 // 선택해 둔 재생 구간은 건드리지 않는다 — 경계가 조금 달라져도 사용자가 고른 범위는 유지.

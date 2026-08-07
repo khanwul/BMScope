@@ -13,14 +13,6 @@ const IDS = new Set([...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]))
 const HIDDEN = new Set(
   [...html.matchAll(/<[^>]*\bid="([^"]+)"[^>]*>/g)].filter(m => /\shidden[\s>]/.test(m[0])).map(m => m[1]))
 
-// 클래스 선택자도 index.html 에서 실제로 찾는다 — id 와 같은 오타 검출을 받으려면
-// 스텁이 표를 들고 있으면 안 된다. (id 없는 라디오만 아래 controls 표로 흉내낸다.)
-const TAGS = [...html.matchAll(/<[^>]+>/g)].map(m => m[0])
-const idsWithClass = name =>
-  TAGS.filter(t => new RegExp(`class="[^"]*\\b${name}\\b`).test(t))
-    .map(t => t.match(/\bid="([^"]+)"/)?.[1])
-    .filter(Boolean)
-
 const noop = () => {}
 const ctx2d = () => new Proxy({}, {
   get: (t, k) => {
@@ -43,10 +35,7 @@ const controls = {
   'input[name=mode]': [
     control('mode:overview', 'overview', true), control('mode:play', 'play'), control('mode:ir', 'ir'),
   ],
-  '.axis-control': [
-    control('overview-axis:measures', 'measures', true), control('overview-axis:seconds', 'seconds'),
-    control('play-axis:measures', 'measures', true), control('play-axis:seconds', 'seconds'),
-  ],
+  'input[name=axis]': [control('axis:measures', 'measures', true), control('axis:seconds', 'seconds')],
   'input[name=segmode]': [control('segmode:texture', 'texture'), control('segmode:fine', 'fine', true)],
 }
 
@@ -81,8 +70,8 @@ let lastCreated = null
 globalThis.document = {
   documentElement: {},
   getElementById: id => (IDS.has(id) ? cache.get(id) : (missing.push(id), null)),
-  querySelectorAll: selector =>
-    controls[selector] || (selector.startsWith('.') ? idsWithClass(selector.slice(1)).map(id => cache.get(id)) : []),
+  // id 없는 라디오만 표로 흉내낸다 — 나머지는 전부 getElementById 라 오타 검출을 받는다.
+  querySelectorAll: selector => controls[selector] || [],
   createElement: () => (lastCreated = el('offscreen')),
 }
 globalThis.URL.createObjectURL = () => 'blob:x'
@@ -145,6 +134,7 @@ listeners.get('mode:ir:change')({ target: controls['input[name=mode]'][2] })
 assert.equal(cache.get('overview-view').hidden, true)
 assert.equal(cache.get('play-view').hidden, true)
 assert.equal(cache.get('ir-view').hidden, false)
+assert.equal(cache.get('view-controls').hidden, true, 'IR 탭에 캔버스 노브가 남아 있다')
 assert.match(cache.get('bmsir-link').href, /songmd5=0d98fe8171ebfb82310d89ffc0320dfa/, '원본 MD5로 IR 링크를 만들지 않는다')
 assert.match(cache.get('lr2archive-link').href, /lr2ir\.com\/charts\/0d98fe8171ebfb82310d89ffc0320dfa/)
 assert.match(cache.get('mocha-link').href, /title=BMScope%20Demo/)
@@ -166,6 +156,13 @@ listeners.get('mode:overview:change')({ target: controls['input[name=mode]'][0] 
 assert.equal(cache.get('overview-view').hidden, false)
 assert.equal(cache.get('play-view').hidden, true)
 assert.equal(cache.get('ir-view').hidden, true)
+assert.equal(cache.get('view-controls').hidden, false, '캔버스 탭인데 노브가 사라졌다')
+
+// 축 노브는 하나뿐이고 두 화면에 함께 걸린다 — 구간 목록의 범위 표기가 마디↔시간으로 갈린다.
+assert.match(cache.get('segments').innerHTML, /class="t">0–/, '기본은 마디 토큰')
+listeners.get('axis:seconds:change')({ target: controls['input[name=axis]'][1] })
+assert.match(cache.get('segments').innerHTML, /class="t">0:00–/, '시간별로 안 바뀐다')
+listeners.get('axis:measures:change')({ target: controls['input[name=axis]'][0] })
 
 // 구간 목록도 타임라인 밴드처럼 한 번 클릭으로 재생 구간을 잡는다.
 listeners.get('segments:click')({ target: { closest: () => ({ dataset: { seg: '0' } }) } })
@@ -212,17 +209,18 @@ assert.match(cache.get('range').textContent, /커서 0:00 · 재생 구간: 전�
 
 // 하이스피드 = 전체 보기의 컬럼 밀도. 올리면 캔버스가 래퍼(900)보다 넓어져 가로 스크롤이 되고,
 // 기본값(140)이면 딱 맞아 스크롤이 안 생긴다.
-const hispeed = listeners.get('overview-hispeed:input')
+const hispeed = listeners.get('hispeed:input')
 const overview = cache.get('overview')
 hispeed({ target: { value: '280' } })
 assert.equal(overview.style.width, '1800px', '하이스피드를 올려도 컬럼이 안 늘어난다')
 assert.equal(cache.get('hispeed-v').textContent, '2.00×', '하이스피드 수치가 배율로 안 나온다')
-assert.equal(cache.get('overview-hispeed-v').textContent, '2.00×', '두 화면의 하이스피드가 어긋난다')
-listeners.get('hispeed:input')({ target: { value: '140' } })
+hispeed({ target: { value: '140' } })
 assert.equal(overview.style.width, '900px', '기본값인데 캔버스가 래퍼 폭과 다르다')
 
-listeners.get('overview-lane-random:click')()
-assert.equal(cache.get('overview-lane-order').value, cache.get('lane-order').value, '두 화면의 레인 순서가 어긋난다')
+const laneBefore = cache.get('lane-order').value
+listeners.get('lane-random:click')()
+assert.notEqual(cache.get('lane-order').value, '', '랜덤 배치가 레인 입력에 안 들어간다')
+assert.equal(cache.get('lane-order').value.length, laneBefore.length, '랜덤 배치가 레인 수를 바꿨다')
 
 // 잘못된 파일: 패널은 감춘 채로 두고 오류만 띄운다 (앞 파일 결과가 남아 있으면 안 된다).
 const feed = (name, bytes) => listeners.get('file:change')({
