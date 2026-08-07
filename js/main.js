@@ -423,7 +423,10 @@ drop.addEventListener('drop', e => {
   if (f) open(f)
 })
 
-const chartLabel = chart => [chart.title || chart.filename, chart.artist, chart.title && chart.filename].filter(Boolean).join(' — ')
+const chartLabel = chart => {
+  const filename = chart.filename.replace(/^[^/]+\//, '')
+  return [chart.title || filename, chart.artist, chart.title && filename].filter(Boolean).join(' — ')
+}
 let savedRequest = 0
 let searchTimer
 
@@ -452,7 +455,8 @@ async function loadSavedCharts(query = '') {
 
 $('saved-chart').addEventListener('input', e => {
   clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => loadSavedCharts(e.currentTarget.value), 200)
+  const { value } = e.currentTarget
+  searchTimer = setTimeout(() => loadSavedCharts(value), 200)
 })
 
 $('load-saved').addEventListener('click', async () => {
