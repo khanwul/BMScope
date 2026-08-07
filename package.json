@@ -7,7 +7,6 @@
     "build:vendor": "esbuild build/entry.js --bundle --format=esm --platform=browser --minify --outfile=js/vendor/bms.js",
     "start": "node server.js",
     "import:chart": "node scripts/import-chart.js",
-    "serve": "python3 build/serve.py",
     "test": "node test/run.js && node test/server.js && node test/smoke.js"
   },
   "devDependencies": {

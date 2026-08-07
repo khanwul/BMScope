@@ -46,10 +46,7 @@ const timeline = createTimeline($('timeline'), {
   onRange: r => { player.setRange(r); overview.setRange(toBeats(r)); showRange() },
 })
 
-const overview = createOverview($('overview'), {
-  onSelect: seg => timeline.setRange({ a: seg.t0, b: seg.t1 }),
-  onSeek: seekTo,
-})
+const overview = createOverview($('overview'), { onSelect: selectSegment, onSeek: seekTo })
 
 const playView = createPlayView($('play'))
 const player = createPlayer({ onEnd: () => syncTransport() })

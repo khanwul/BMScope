@@ -18,7 +18,6 @@ const ctx2d = () => new Proxy({}, {
   get: (t, k) => {
     if (k in t) return t[k]
     if (k === 'measureText') return () => ({ width: 10 })
-    if (k === 'createLinearGradient') return () => ({ addColorStop: noop })
     return (t[k] = noop)
   },
   set: (t, k, v) => ((t[k] = v), true),
@@ -35,7 +34,7 @@ function el(id) {
     style: {}, children: [], classList: { add: noop, remove: noop },
     width: 0, height: 0,
     // 전체 보기는 캔버스가 아니라 래퍼의 폭으로 컬럼을 나눈다(캔버스는 넘칠 수 있다)
-    parentElement: { clientWidth: 900, clientHeight: 200, scrollLeft: 0 },
+    parentElement: { clientWidth: 900, scrollLeft: 0 },
     // 크기가 음수면 브라우저는 컨텍스트를 안 준다. 숨은 채로 그리면 여기서 터진다.
     getContext() { return this.width < 0 || this.height < 0 ? null : c },
     getBoundingClientRect: () => (cache.get('result').hidden

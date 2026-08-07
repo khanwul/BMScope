@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createPool, initDb } from './db.js'
+import { createPool, SCHEMA } from './db.js'
 
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const TYPES = {
@@ -56,16 +56,12 @@ async function handle(req, res, pool, root) {
   }
 
   if (pathname.startsWith('/api/')) return json(res, 404, { error: 'Not found' })
-  if (!['GET', 'HEAD'].includes(req.method)) return send(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
+  if (req.method !== 'GET') return send(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
 
   const file = publicFile(root, pathname)
   if (!file) return send(res, 404, 'Not Found', 'text/plain; charset=utf-8')
   try {
     const data = await readFile(file)
-    if (req.method === 'HEAD') {
-      res.writeHead(200, { 'Content-Type': TYPES[extname(file)] || 'application/octet-stream', 'Content-Length': data.length })
-      return res.end()
-    }
     return send(res, 200, data, TYPES[extname(file)] || 'application/octet-stream')
   } catch (error) {
     if (error.code === 'ENOENT') return send(res, 404, 'Not Found', 'text/plain; charset=utf-8')
@@ -83,7 +79,7 @@ export function createHandler(pool, root = ROOT) {
 
 async function start() {
   const pool = createPool()
-  if (pool) await initDb(pool)
+  if (pool) await pool.query(SCHEMA)
   const port = Number(process.env.PORT) || 10000
   createServer(createHandler(pool)).listen(port, '0.0.0.0', () =>
     console.log(`BMScope listening on 0.0.0.0:${port}${pool ? '' : ' (DB disabled)'}`))

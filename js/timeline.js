@@ -3,12 +3,11 @@
 //
 // 미리보기는 로드 시 오프스크린 캔버스에 한 번 굽고 매 프레임 drawImage 로 복사만 한다.
 // 재생 중 60fps 로 다시 그려야 하므로 노트 수천 개를 매번 순회하면 안 된다.
-import { css, fit, offscreen } from './charts.js'
+import { css, fit, KIND, offscreen } from './charts.js'
+import { kindOf } from './analyze.js'
 
 const BAND_H = 9 // 태그 밴드 높이
 const GRAB = 8 // 구간 경계 스냅 / 핸들 잡기 허용 오차(px)
-
-const KIND_VAR = { scratch: '--scratch', ln: '--ln', normal: '--key' }
 
 /**
  * @param canvas  <canvas>
@@ -55,8 +54,7 @@ export function createTimeline(canvas, { onSeek, onRange } = {}) {
     const dotPad = (laneH - dotH) / 2
 
     for (const n of data.notes) {
-      const kind = scratch.has(n.col) ? 'scratch' : n.isLN ? 'ln' : 'normal'
-      g.fillStyle = css(KIND_VAR[kind])
+      g.fillStyle = css(KIND[kindOf(n, scratch)][0])
       const x = xOf(n.time)
       const y = rowOf(n.col) * laneH + dotPad
       const wpx = n.isLN ? Math.max(xOf(n.endTime) - x, 1) : 1

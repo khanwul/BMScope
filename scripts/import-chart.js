@@ -1,7 +1,7 @@
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile, readdir, stat } from 'node:fs/promises'
-import { createPool, initDb } from '../db.js'
+import { createPool, SCHEMA } from '../db.js'
 import { loadFile } from '../js/load.js'
 import { toLanes } from '../js/lanes.js'
 
@@ -31,33 +31,27 @@ export async function collectCharts(input) {
 
 export async function highest7KGroups(charts) {
   const groups = new Map()
-  let next = 0
-  async function scan() {
-    while (next < charts.length) {
-      const i = next++
-      const chart = charts[i]
-      if ((i + 1) % 5000 === 0) console.log(`선별 ${i + 1}/${charts.length}`)
-      if (/\.pms$/i.test(chart.path)) continue
-      const content = await readFile(chart.path)
-      if (content.length > 5 * 1024 * 1024) continue
-      const text = content.toString('latin1')
-      let wide = false
-      let p2 = false
-      for (const match of text.matchAll(/^\s*#\d{3}([1256][1-9]):([0-9a-z]+)/gim)) {
-        if (!/[1-9a-z]/i.test(match[2])) continue
-        if ('26'.includes(match[1][0])) p2 = true
-        else if ('89'.includes(match[1][1])) wide = true
-        if (p2) break
-      }
-      if (!wide || p2) continue
-      const raw = text.match(/^\s*#PLAYLEVEL\s+([^\r\n]+)/im)?.[1] || ''
-      const level = +(raw.match(/\d+(?:\.\d+)?/)?.[0] || 0)
-      const dir = dirname(chart.path)
-      if (!groups.has(dir)) groups.set(dir, [])
-      groups.get(dir).push({ ...chart, level, size: content.length })
+  for (const [i, chart] of charts.entries()) {
+    if ((i + 1) % 5000 === 0) console.log(`선별 ${i + 1}/${charts.length}`)
+    if (/\.pms$/i.test(chart.path)) continue
+    const content = await readFile(chart.path)
+    if (content.length > 5 * 1024 * 1024) continue
+    const text = content.toString('latin1')
+    let wide = false
+    let p2 = false
+    for (const match of text.matchAll(/^\s*#\d{3}([1256][1-9]):([0-9a-z]+)/gim)) {
+      if (!/[1-9a-z]/i.test(match[2])) continue
+      if ('26'.includes(match[1][0])) p2 = true
+      else if ('89'.includes(match[1][1])) wide = true
+      if (p2) break
     }
+    if (!wide || p2) continue
+    const raw = text.match(/^\s*#PLAYLEVEL\s+([^\r\n]+)/im)?.[1] || ''
+    const level = +(raw.match(/\d+(?:\.\d+)?/)?.[0] || 0)
+    const dir = dirname(chart.path)
+    if (!groups.has(dir)) groups.set(dir, [])
+    groups.get(dir).push({ ...chart, level, size: content.length })
   }
-  await Promise.all(Array.from({ length: 16 }, scan))
   return [...groups.values()].map(group => group.sort((a, b) => b.level - a.level || b.size - a.size))
 }
 
@@ -72,7 +66,7 @@ async function importCharts(input, { highest7K = false } = {}) {
   let skipped = 0
 
   try {
-    await initDb(pool)
+    await pool.query(SCHEMA)
     // ponytail: 순차 import. 1회성 관리 작업이라 충분함 — 수천 건에서 느리면 동시성만 제한해 추가.
     for (const [i, group] of groups.entries()) {
       let stored = false

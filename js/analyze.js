@@ -45,7 +45,7 @@ function bpmStats(parsed, lanes) {
 // 마디 뷰에서도 BPM 만큼만 갈린다 — BPM 은 이미 따로 그린다. 순간 최대 밀도는 노트가
 // 버킷 안에서 고르게 퍼졌는지 한 곳에 몰렸는지를 재므로 막대 높이와 독립이다.
 // 스크래치 레인의 롱노트(백스핀)는 '스크래치'로 센다 — 길이보다 어느 레인이냐가 읽는 데 중요하다.
-const kindOf = (n, scratch) => (scratch.has(n.col) ? 'scratch' : n.isLN ? 'ln' : 'normal')
+export const kindOf = (n, scratch) => (scratch.has(n.col) ? 'scratch' : n.isLN ? 'ln' : 'normal')
 
 /**
  * 각 노트에서 시작하는 1초 창의 노트 수. 전체 최댓값이 곧 채보의 최대 NPS 이고,

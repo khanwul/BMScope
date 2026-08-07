@@ -19,17 +19,15 @@ BMS 채보 파일을 브라우저에서 파싱해 **분석 · 시각화 · 재�
 
 ## 실행
 
-DB 없이 기존 정적 모드로 실행할 수 있다 (ES 모듈이라 `file://` 은 안 됨).
-
 ```bash
-npm run serve      # → http://localhost:8000
+npm start           # → http://localhost:10000
 ```
 
-저장 채보까지 사용하려면 PostgreSQL 연결 문자열을 지정해 Node 서버를 실행한다.
+`DATABASE_URL` 이 없으면 저장 채보 기능만 빠지고 나머지는 그대로 돈다 (ES 모듈이라 `file://` 로는 안 열린다). 저장 채보까지 쓰려면 PostgreSQL 연결 문자열을 지정한다.
 
 ```bash
 export DATABASE_URL='postgresql://...'
-npm start           # → http://localhost:10000
+npm start
 npm run import:chart -- ./song.bms
 npm run import:chart -- ./song-pack  # 하위 폴더까지 일괄 등록
 npm run import:chart -- ./packs --highest-7k  # 곡별 최고난도 7K SP 한 장

@@ -28,9 +28,10 @@ export function offscreen(w, h, dpr) {
 
 export const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
 
-// 막대는 노트 종류별로 쌓는다. 아래부터 스크래치 → 롱 → 일반 —
+// 노트 종류 → [CSS 변수, 라벨]. 밀도 막대와 타임라인 점이 같은 표를 봐야 색이 안 갈린다.
+// 키 순서가 곧 막대 쌓는 순서다 — 아래부터 스크래치 → 롱 → 일반.
 // 적은 종류를 바닥에 붙여야 몇 개짜리 층도 눈에 띈다.
-const STACK = [['scratch', '--scratch', '스크래치'], ['ln', '--ln', '롱'], ['normal', '--key', '일반']]
+export const KIND = { scratch: ['--scratch', '스크래치'], ln: ['--ln', '롱'], normal: ['--key', '일반'] }
 
 /**
  * `step`=true 면 계단, 아니면 버킷 중앙을 잇는 꺾은선.
@@ -104,7 +105,7 @@ export function drawDensity(canvas, bars, { tick = i => i, grow = 1 } = {}) {
   for (const b of bars) {
     if (!b.notes) continue
     let y = bottom
-    for (const [kind, varName] of STACK) {
+    for (const [kind, [varName]] of Object.entries(KIND)) {
       const bh = (b.types[kind] / maxNotes) * plotH
       if (!bh) continue
       ctx.fillStyle = css(varName)
@@ -130,7 +131,7 @@ export function drawDensity(canvas, bars, { tick = i => i, grow = 1 } = {}) {
     ctx.fillText(label, x + 13, pad.t - 11)
     x += ctx.measureText(label).width + 26
   }
-  for (const [, varName, label] of [...STACK].reverse()) item(css(varName), label)
+  for (const [varName, label] of Object.values(KIND).reverse()) item(css(varName), label)
   item(cPeak, `순간 최대 밀도 0–${maxPeak}/s`, true)
   item(cBpm, bpmLo === bpmHi ? `BPM ${Math.round(bpmLo)}` : `BPM ${Math.round(bpmLo)}–${Math.round(bpmHi)}`, true)
 
