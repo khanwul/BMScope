@@ -99,14 +99,29 @@
           <h3>IR · 실전 데이터 <span class="dim">파일 해시로 조회 · 점수는 전송하지 않음</span></h3>
           <div id="ir-tools">
             <nav id="ir-links" aria-label="외부 IR">
-              <a id="bmsir-link" target="_blank" rel="noopener">BMS-IR (LR2)</a>
+              <a id="bmsir-link" target="_blank" rel="noopener">BMS-IR</a>
+              <a id="minir-link" href="https://www.gaftalk.com/minir/" target="_blank" rel="noopener">MinIR</a>
+              <a id="lr2archive-link" target="_blank" rel="noopener">LR2IR Archive</a>
+              <a id="mocha-link" target="_blank" rel="noopener">Mocha</a>
               <a id="stellaverse-link" href="https://ir.stellabms.xyz/" target="_blank" rel="noopener">STELLAVERSE IR</a>
               <a id="bokutachi-link" target="_blank" rel="noopener" hidden>Bokutachi</a>
             </nav>
+            <label>BMS-IR
+              <select id="ir-client">
+                <option value="lr2">LR2</option>
+                <option value="openlr2">OpenLR2</option>
+                <option value="lr2oraja">LR2oraja</option>
+                <option value="lr2oraja_ed">LR2oraja ED</option>
+                <option value="beatoraja">beatoraja</option>
+              </select>
+            </label>
             <label>Bokutachi 사용자
               <input id="ir-user" type="text" maxlength="50" autocomplete="username" placeholder="선택 사항">
             </label>
-            <button id="load-ir-user" type="button">내 기록</button>
+            <label>라이벌
+              <input id="ir-rival" type="text" maxlength="50" autocomplete="off" placeholder="선택 사항">
+            </label>
+            <button id="load-ir-user" type="button">조회</button>
           </div>
           <p id="ir-status" class="dim">조회 중…</p>
           <div id="ir-content" class="ir-cols" hidden>
@@ -114,11 +129,14 @@
               <h4>커뮤니티</h4>
               <dl id="ir-stats"></dl>
               <div id="ir-lamps"></div>
+              <div id="ir-other"></div>
               <p id="ir-random" class="dim"></p>
             </div>
             <div>
               <h4>내 기록 · 최근 성과</h4>
               <div id="ir-personal" class="dim">사용자명을 입력하면 표시합니다.</div>
+              <div id="ir-growth"></div>
+              <div id="ir-rival-result" class="dim"></div>
               <ol id="ir-recent"></ol>
             </div>
             <div>

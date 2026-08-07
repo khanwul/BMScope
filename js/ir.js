@@ -70,6 +70,20 @@ export function summarizePBs(pbs = []) {
   }
 }
 
+export function progression(scores = []) {
+  let best = -Infinity
+  return [...(scores || [])]
+    .filter(x => Number.isFinite(x?.scoreData?.percent))
+    .sort((a, b) => new Date(a.timeAchieved || 0) - new Date(b.timeAchieved || 0))
+    .reduce((out, x) => {
+      if (x.scoreData.percent > best) {
+        best = x.scoreData.percent
+        out.push({ percent: x.scoreData.percent, score: x.scoreData.score, time: x.timeAchieved })
+      }
+      return out
+    }, [])
+}
+
 function levelKey(chart) {
   const m = String(chart?.data?.aiLevel || '').match(/^([^\d-]*)(-?\d+(?:\.\d+)?)$/)
   return m && { prefix: m[1], value: +m[2] }
@@ -94,21 +108,20 @@ export function recommend(current, charts = [], recent = []) {
     }))
 }
 
-export async function loadTachi({ sha256, mode, username = '' }) {
+export async function loadTachi({ sha256, mode, username = '', rival = '' }) {
   const game = irGame(mode)
   const found = await api(`/search/chart-hash?search=${sha256}`)
   const chart = found.charts.find(c => c.game === game) || found.charts[0] || null
   if (!chart) return { chart: null, game, pbs: summarizePBs(), personal: null, recent: [], recommendations: [] }
 
-  const requests = [
+  const [board, popular, personal, history, scoreHistory, rivalPb] = await Promise.all([
     api(`/games/${chart.game}/charts/${chart.chartID}/pbs`).catch(() => ({ pbs: [] })),
     api(`/games/${chart.game}/charts`).catch(() => ({ charts: [] })),
-  ]
-  if (username) requests.push(
-    api(`/users/${encodeURIComponent(username)}/games/${chart.game}/best-score/${sha256}`).catch(() => null),
-    api(`/users/${encodeURIComponent(username)}/games/${chart.game}/scores/recent`).catch(() => ({ charts: [], scores: [], songs: [] })),
-  )
-  const [board, popular, personal = null, history = {}] = await Promise.all(requests)
+    username ? api(`/users/${encodeURIComponent(username)}/games/${chart.game}/best-score/${sha256}`).catch(() => null) : null,
+    username ? api(`/users/${encodeURIComponent(username)}/games/${chart.game}/scores/recent`).catch(() => ({ charts: [], scores: [], songs: [] })) : {},
+    username ? api(`/users/${encodeURIComponent(username)}/games/${chart.game}/scores/${chart.chartID}`).catch(() => []) : [],
+    rival ? api(`/users/${encodeURIComponent(rival)}/games/${chart.game}/best-score/${sha256}`).catch(() => null) : null,
+  ])
   const recent = (history.scores || []).slice(0, 5).map(score => {
     const c = history.charts.find(x => x.chartID === score.chartID)
     return { ...score, title: c?.song?.title || score.chartID, level: level(c) || '?',
@@ -122,6 +135,8 @@ export async function loadTachi({ sha256, mode, username = '' }) {
     aiLevel: chart.data.aiLevel,
     pbs: summarizePBs(board.pbs),
     personal,
+    rival: rivalPb,
+    progression: progression(scoreHistory),
     recent,
     recommendations: recommend(chart, popular.charts, history.scores || []),
   }

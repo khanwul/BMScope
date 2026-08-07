@@ -137,6 +137,9 @@ assert.match(cache.get('stats').innerHTML, /<dt>노트<\/dt>/)
 assert.match(cache.get('segments').innerHTML, /class="tag tag-/)
 assert.match(cache.get('badges').innerHTML, /7K/)
 assert.match(cache.get('bmsir-link').href, /songmd5=0d98fe8171ebfb82310d89ffc0320dfa/, '원본 MD5로 IR 링크를 만들지 않는다')
+assert.match(cache.get('lr2archive-link').href, /lr2ir\.com\/charts\/0d98fe8171ebfb82310d89ffc0320dfa/)
+assert.match(cache.get('mocha-link').href, /title=BMScope%20Demo/)
+assert.ok(fetched.some(x => /\/api\/ir\/[\da-f]{32}\?sha256=[\da-f]{64}&client=lr2/.test(x)), 'MD5·SHA-256·클라이언트로 IR을 조회하지 않는다')
 
 // 상단 탭은 분석과 재생 묶음 전체를 바꾸고, 돌아와도 같은 커서를 유지한다.
 listeners.get('mode:play:change')({ target: controls['input[name=mode]'][1] })

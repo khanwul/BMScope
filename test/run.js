@@ -9,7 +9,7 @@ import { extract, trillRatio, FEATURE_NAMES } from '../js/features.js'
 import { boundaries, segments, SEG_FEATURES } from '../js/segment.js'
 import { classify, refine, tagSegments } from '../js/tagger.js'
 import { createPlayer } from '../js/player.js'
-import { hashes, md5, recommend, summarizePBs } from '../js/ir.js'
+import { hashes, md5, progression, recommend, summarizePBs } from '../js/ir.js'
 
 const run = (text, name = 'x.bms') => {
   const parsed = parse(text, { name })
@@ -37,6 +37,11 @@ const run = (text, name = 'x.bms') => {
   const chart = (id, n) => ({ chartID: id, game: 'bms-7k', song: { title: id, artist: 'a' }, data: { aiLevel: `★${n}` } })
   assert.deepEqual(recommend(chart('now', 10), [chart('hard', 11), chart('same', 10), chart('easy', 8)], []).map(x => x.title),
     ['same', 'easy'], '현재보다 같거나 두 단계 낮은 인기 채보만 추천')
+  assert.deepEqual(progression([
+    { timeAchieved: '2026-01-03', scoreData: { percent: 80, score: 1600 } },
+    { timeAchieved: '2026-01-01', scoreData: { percent: 60, score: 1200 } },
+    { timeAchieved: '2026-01-02', scoreData: { percent: 55, score: 1100 } },
+  ]).map(x => x.percent), [60, 80], 'PB 성장선은 시간순 최고기록만 남긴다')
 }
 
 // ── 7K: 노트 · LN · 스크래치 · BPM 변화 · STOP · 마디 집계 ────────────────────

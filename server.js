@@ -57,6 +57,46 @@ export function parseBmsIrPopular(html) {
     .map(m => ({ rank: +m[1], md5: m[2], title: textOnly(m[3]), artist: textOnly(m[4]), players: +m[5].replace(/,/g, ''), plays: +m[6].replace(/,/g, '') }))
 }
 
+const MINIR_LAMPS = ['NOPLAY', 'FAILED', 'ASSIST EASY', 'LIGHT ASSIST EASY', 'EASY', 'CLEAR', 'HARD', 'EX HARD', 'FULL COMBO', 'PERFECT', 'MAX']
+
+export function summarizeMinIr(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null
+  const scores = rows.filter(x => Number.isFinite(+x.score) && Number.isFinite(+x.notes) && +x.notes > 0)
+  if (!scores.length) return null
+  const percentages = scores.map(x => +x.score / (+x.notes * 2) * 100)
+  const lamps = {}
+  for (const x of scores) {
+    const lamp = MINIR_LAMPS[+x.clear] || `CLEAR ${x.clear}`
+    lamps[lamp] = (lamps[lamp] || 0) + 1
+  }
+  const early = scores.reduce((n, x) => n + (+x.epg || 0) + (+x.egr || 0), 0)
+  const late = scores.reduce((n, x) => n + (+x.lpg || 0) + (+x.lgr || 0), 0)
+  return {
+    players: new Set(scores.map(x => x.userid).filter(Boolean)).size || scores.length,
+    scores: scores.length,
+    average: percentages.reduce((a, b) => a + b, 0) / percentages.length,
+    topEx: Math.max(...scores.map(x => +x.score)),
+    maxCombo: Math.max(...scores.map(x => +x.combo || 0)),
+    lamps,
+    timing: early + late ? { early, late, earlyPercent: early / (early + late) * 100 } : null,
+  }
+}
+
+export function summarizeLr2Archive(data) {
+  if (!data?.chart) return null
+  const top = (data.leaderboard || []).find(x => !x.is_cheated) || null
+  return {
+    title: data.chart.title,
+    level: data.chart.level,
+    players: +data.chart.play_people || 0,
+    plays: +data.chart.play_count || 0,
+    clearPlayers: +data.chart.clear_people || 0,
+    topEx: top?.score ?? null,
+    maxEx: top?.score_max ?? null,
+    topPlayer: top?.player_name || null,
+  }
+}
+
 const irCache = new Map()
 async function cached(key, load) {
   const hit = irCache.get(key)
@@ -76,6 +116,15 @@ async function fetchText(fetcher, url) {
   return response.text()
 }
 
+async function fetchJson(fetcher, url, headers = {}) {
+  const response = await fetcher(url, {
+    headers: { Accept: 'application/json', 'User-Agent': 'BMScope/1.0 (+https://github.com/khanwul/BMScope)', ...headers },
+    signal: AbortSignal.timeout(6000),
+  })
+  if (!response.ok) throw new Error(`IR HTTP ${response.status}`)
+  return response.json()
+}
+
 function publicFile(root, pathname) {
   if (pathname === '/') return join(root, 'index.html')
   let file
@@ -93,15 +142,25 @@ async function handle(req, res, pool, root, fetcher) {
   const ir = req.method === 'GET' && pathname.match(/^\/api\/ir\/([\da-f]{32})$/i)
   if (ir) {
     const md5 = ir[1].toLowerCase()
-    const [song, popular] = await Promise.allSettled([
-      cached(`song:${md5}`, async () => parseBmsIrSong(await fetchText(fetcher, `https://bms-ir.org/new/song?songmd5=${md5}&client_view=lr2`))),
+    const clients = ['lr2', 'openlr2', 'lr2oraja', 'lr2oraja_ed', 'beatoraja']
+    const client = url.searchParams.get('client') || 'lr2'
+    const sha256 = url.searchParams.get('sha256') || ''
+    if (!clients.includes(client)) return json(res, 400, { error: '지원하지 않는 BMS-IR 클라이언트입니다' })
+    if (sha256 && !/^[\da-f]{64}$/i.test(sha256)) return json(res, 400, { error: '잘못된 SHA-256입니다' })
+    const [song, popular, minir, archive] = await Promise.allSettled([
+      cached(`song:${client}:${md5}`, async () => parseBmsIrSong(await fetchText(fetcher, `https://bms-ir.org/new/song?songmd5=${md5}&client_view=${client}`))),
       cached('popular', async () => parseBmsIrPopular(await fetchText(fetcher, 'https://bms-ir.org/'))),
+      sha256 ? cached(`minir:${sha256}`, async () => summarizeMinIr(await fetchJson(fetcher, 'https://minir.azurewebsites.net/api/getSongScores', { songhash: sha256 }))) : null,
+      cached(`lr2archive:${md5}`, async () => summarizeLr2Archive(await fetchJson(fetcher, `https://lr2ir.com/api/charts/${md5}`))),
     ])
-    if (song.status === 'rejected' && popular.status === 'rejected')
-      return json(res, 502, { error: 'BMS-IR을 불러오지 못했습니다' })
+    if ([song, popular, minir, archive].every(x => x.status === 'rejected'))
+      return json(res, 502, { error: 'IR을 불러오지 못했습니다' })
     return json(res, 200, {
+      client,
       song: song.status === 'fulfilled' ? song.value : null,
       popular: popular.status === 'fulfilled' ? popular.value : [],
+      minir: minir.status === 'fulfilled' ? minir.value : null,
+      archive: archive.status === 'fulfilled' ? archive.value : null,
     })
   }
 

@@ -253,7 +253,10 @@ async function show(file, random = 1) {
 }
 
 // ── 외부 IR ─────────────────────────────────────────────────────────────
-const bmsIrUrl = md5 => `https://bms-ir.org/new/song?songmd5=${md5}&client_view=lr2`
+const IR_CLIENTS = { lr2: 'LR2', openlr2: 'OpenLR2', lr2oraja: 'LR2oraja', lr2oraja_ed: 'LR2oraja ED', beatoraja: 'beatoraja' }
+const irClient = () => IR_CLIENTS[$('ir-client').value] ? $('ir-client').value : 'lr2'
+const bmsIrUrl = (md5, client = irClient()) => `https://bms-ir.org/new/song?songmd5=${md5}&client_view=${client}`
+const mochaUrl = info => `https://mocha-repository.info/songs2.php?title=${encodeURIComponent(info.title || '')}&artist=${encodeURIComponent(info.artist || '')}`
 
 function renderIrRandom() {
   if (!current) return
@@ -273,7 +276,9 @@ function irCardRows(data) {
   ])]
   if (levels.length) rows.push(['IR 난이도', levels.join(' · ')])
   const s = data.bmsir?.song?.found ? data.bmsir.song.stats : null
-  if (+s?.players) rows.push(['BMS-IR (LR2)', `${s.players}명 · 평균 ${s.averageScore || '-'}`])
+  if (+s?.players) rows.push([`BMS-IR (${IR_CLIENTS[data.bmsir.client]})`, `${s.players}명 · 평균 ${s.averageScore || '-'}`])
+  if (data.bmsir?.minir) rows.push(['MinIR', `${data.bmsir.minir.players}명 · 평균 ${data.bmsir.minir.average.toFixed(2)}%`])
+  if (data.bmsir?.archive) rows.push(['구 LR2IR', `${data.bmsir.archive.players.toLocaleString()}명 · ${data.bmsir.archive.plays.toLocaleString()}회`])
   const pb = data.tachi?.personal
   if (pb) rows.push(['내 PB', `${pb.scoreData.lamp} · ${pb.scoreData.percent.toFixed(2)}%`])
   const weekly = data.bmsir?.popular?.find(x => x.md5 === current.parsed.hashes.md5)
@@ -295,6 +300,7 @@ function renderIr() {
   if (tachi?.aiLevel) stats.push(['추정 난이도', tachi.aiLevel])
   const s = bms?.song?.found ? bms.song.stats : null
   if (s) {
+    stats.push(['BMS-IR', IR_CLIENTS[bms.client] || bms.client])
     stats.push(['플레이', `${s.players || 0}명 · ${s.plays || 0}회`])
     stats.push(['평균 EX', s.averageScore || '-'])
     stats.push(['최고 EX / 최소 BP', `${s.topEx || '-'} / ${s.minBp || '-'}`])
@@ -316,11 +322,36 @@ function renderIr() {
       lamps.map((x, i) => `<span style="width:${Math.max(0, Math.min(100, x.percent))}%;--lamp-i:${i}"></span>`).join('') + '</div>'
     : ''
 
+  const minir = bms?.minir
+  const archive = bms?.archive
+  const timing = minir?.timing
+  $('ir-other').innerHTML = [
+    minir && `<div class="ir-source"><strong>MinIR</strong> · ${minir.players}명 · 평균 ${minir.average.toFixed(2)}% · 최고 EX ${minir.topEx.toLocaleString()}` +
+      `${timing ? `<br><span class="dim">EARLY ${timing.earlyPercent.toFixed(1)}% · LATE ${(100 - timing.earlyPercent).toFixed(1)}%</span>` : ''}</div>`,
+    archive && `<div class="ir-source"><strong>구 LR2IR</strong> · ${archive.players.toLocaleString()}명 · ${archive.plays.toLocaleString()}회 · ` +
+      `클리어 ${archive.players ? (archive.clearPlayers / archive.players * 100).toFixed(1) : '0.0'}% · 최고 EX ${archive.topEx?.toLocaleString() ?? '-'}` +
+      `${archive.maxEx && archive.maxEx !== current.stats.counts.maxEx ? '<br><span class="dim">현재 파일과 최대 EX가 달라 직접 순위 비교 제외</span>' : ''}</div>`,
+  ].filter(Boolean).join('')
+
   const pb = tachi?.personal
   $('ir-personal').innerHTML = pb
     ? `<strong>${esc(pb.scoreData.lamp)}</strong> · ${pb.scoreData.percent.toFixed(2)}% · EX ${pb.scoreData.score.toLocaleString()} · ` +
       `#${pb.rankingData.rank}/${pb.rankingData.outOf}${Number.isFinite(pb.scoreData.optional?.bp) ? ` · BP ${pb.scoreData.optional.bp}` : ''}`
     : $('ir-user').value.trim() ? '이 채보의 기록이 없습니다.' : '사용자명을 입력하면 표시합니다.'
+  const growth = tachi?.progression || []
+  const values = growth.map(x => x.percent)
+  const min = Math.min(...values), max = Math.max(...values)
+  const points = growth.map((x, i) => `${growth.length === 1 ? 50 : i / (growth.length - 1) * 100},${max === min ? 17 : 31 - (x.percent - min) / (max - min) * 28}`).join(' ')
+  $('ir-growth').innerHTML = growth.length
+    ? `<span class="dim">PB 변화 ${growth.map(x => x.percent.toFixed(2)).join(' → ')}%</span>` +
+      (growth.length > 1 ? `<svg viewBox="0 0 100 34" preserveAspectRatio="none" role="img" aria-label="PB 성장 그래프"><polyline points="${points}"></polyline></svg>` : '')
+    : ''
+  const rival = tachi?.rival
+  const rivalName = $('ir-rival').value.trim()
+  $('ir-rival-result').innerHTML = rival
+    ? `<strong>${esc(rivalName)}</strong> · ${esc(rival.scoreData.lamp)} · ${rival.scoreData.percent.toFixed(2)}% · EX ${rival.scoreData.score.toLocaleString()}` +
+      (pb ? ` · 내 PB 대비 ${(rival.scoreData.score - pb.scoreData.score) >= 0 ? '+' : ''}${(rival.scoreData.score - pb.scoreData.score).toLocaleString()}` : '')
+    : rivalName ? '라이벌의 이 채보 기록이 없습니다.' : ''
   $('ir-recent').innerHTML = tachi?.recent?.length
     ? tachi.recent.map(x => `<li>${x.url ? `<a href="${x.url}" target="_blank" rel="noopener">${esc(x.title)}</a>` : esc(x.title)} ` +
       `<span class="dim">${esc(x.level)} · ${esc(x.scoreData.lamp)} ${x.scoreData.percent.toFixed(2)}%</span></li>`).join('')
@@ -341,14 +372,16 @@ function renderIr() {
   $('ir-content').hidden = false
   $('ir-status').textContent = [
     tachi?.chart ? 'Bokutachi 연결됨' : 'Bokutachi 미등록',
-    bms?.song?.found ? 'BMS-IR (LR2) 연결됨' : 'BMS-IR (LR2) 미등록/조회 불가',
+    bms?.song?.found ? `BMS-IR (${IR_CLIENTS[bms.client]}) 연결됨` : `BMS-IR (${IR_CLIENTS[bms?.client] || IR_CLIENTS[irClient()]}) 미등록/조회 불가`,
+    minir ? 'MinIR 연결됨' : 'MinIR 미등록/조회 불가',
+    archive ? 'LR2IR Archive 연결됨' : 'LR2IR Archive 미등록/조회 불가',
     'STELLAVERSE IR은 외부 링크만 제공',
   ].join(' · ')
   if (tachi?.url) { $('bokutachi-link').href = tachi.url; $('bokutachi-link').hidden = false }
   renderIrRandom()
 
   const added = irCardRows(data)
-  current.card.stats = [...current.card.stats.filter(([k]) => !['IR 난이도', 'BMS-IR', 'BMS-IR (LR2)', '내 PB', '주간 인기'].includes(k)), ...added]
+  current.card.stats = [...current.card.stats.filter(([k]) => !k.startsWith('BMS-IR') && !['IR 난이도', 'MinIR', '구 LR2IR', '내 PB', '주간 인기'].includes(k)), ...added]
   if (levels.length && !current.irBadge) {
     current.irBadge = levels[0]
     $('badges').innerHTML += `<span class="badge hot">${esc(levels[0])}</span>`
@@ -360,14 +393,19 @@ async function loadIrData() {
   if (!current) return
   const request = ++irRequest
   const { hashes } = current.parsed
-  $('bmsir-link').href = bmsIrUrl(hashes.md5)
+  const client = irClient()
+  $('bmsir-link').href = bmsIrUrl(hashes.md5, client)
+  $('bmsir-link').textContent = `BMS-IR (${IR_CLIENTS[client]})`
+  $('lr2archive-link').href = `https://lr2ir.com/charts/${hashes.md5}`
+  $('mocha-link').href = mochaUrl(current.stats.info)
   $('bokutachi-link').hidden = true
   $('ir-content').hidden = true
   $('ir-status').textContent = '조회 중…'
   const username = $('ir-user').value.trim()
+  const rival = $('ir-rival').value.trim()
   const [tachi, bmsir] = await Promise.allSettled([
-    loadTachi({ sha256: hashes.sha256, mode: current.stats.mode, username }),
-    fetch(`/api/ir/${hashes.md5}`).then(r => r.ok ? r.json() : Promise.reject(new Error())),
+    loadTachi({ sha256: hashes.sha256, mode: current.stats.mode, username, rival }),
+    fetch(`/api/ir/${hashes.md5}?sha256=${hashes.sha256}&client=${client}`).then(r => r.ok ? r.json() : Promise.reject(new Error())),
   ])
   if (request !== irRequest || current?.parsed.hashes.md5 !== hashes.md5) return
   current.ir = {
@@ -377,11 +415,24 @@ async function loadIrData() {
   renderIr()
 }
 
-try { $('ir-user').value = window.localStorage?.getItem('bmscope-bokutachi-user') || '' } catch {}
+try {
+  $('ir-user').value = window.localStorage?.getItem('bmscope-bokutachi-user') || ''
+  $('ir-rival').value = window.localStorage?.getItem('bmscope-bokutachi-rival') || ''
+  const client = window.localStorage?.getItem('bmscope-bmsir-client')
+  if (IR_CLIENTS[client]) $('ir-client').value = client
+} catch {}
+const saveIrSettings = () => {
+  try {
+    window.localStorage?.setItem('bmscope-bokutachi-user', $('ir-user').value.trim())
+    window.localStorage?.setItem('bmscope-bokutachi-rival', $('ir-rival').value.trim())
+    window.localStorage?.setItem('bmscope-bmsir-client', irClient())
+  } catch {}
+}
 $('load-ir-user').addEventListener('click', () => {
-  try { window.localStorage?.setItem('bmscope-bokutachi-user', $('ir-user').value.trim()) } catch {}
+  saveIrSettings()
   loadIrData()
 })
+$('ir-client').addEventListener('change', () => { saveIrSettings(); loadIrData() })
 
 function showRange() {
   const r = timeline.getRange()
@@ -472,8 +523,13 @@ $('copy-analysis').addEventListener('click', async e => {
     ...(current.ir && { ir: {
       levels: current.ir.tachi?.levels || {},
       aiLevel: current.ir.tachi?.aiLevel || null,
+      bmsIrClient: current.ir.bmsir?.client || null,
       community: current.ir.bmsir?.song?.found ? current.ir.bmsir.song : current.ir.tachi?.pbs || null,
+      minir: current.ir.bmsir?.minir || null,
+      lr2Archive: current.ir.bmsir?.archive || null,
       personal: current.ir.tachi?.personal || null,
+      rival: current.ir.tachi?.rival || null,
+      progression: current.ir.tachi?.progression || [],
       weeklyRank: current.ir.bmsir?.popular?.find(x => x.md5 === parsed.hashes.md5)?.rank || null,
     } }),
     ...(parsed.randomMax > 1 && { randomBranch: parsed.randomChoice }),

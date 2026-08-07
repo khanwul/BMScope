@@ -16,7 +16,7 @@ BMS 채보 파일을 브라우저에서 파싱해 **분석 · 시각화 · 재�
 - **타임라인 구간 선택** — 끌어서 A–B 지정, 그 구간만 반복 재생.
 - **빠른 탐색·내보내기** — 구간 목록 클릭, 키보드 이동, 분석 JSON 복사, `#RANDOM` 분기 선택.
 - **통계 · 레인별 분포**, 인코딩 자동 판별(UTF-8 → Shift_JIS → EUC-KR).
-- **IR 연동** — BMS-IR의 LR2 실전 통계·주간 인기와 Bokutachi 난이도표·개인 PB·최근 성과·연습 후보를 조회하고, STELLAVERSE IR로 바로 이동한다.
+- **IR 연동** — BMS-IR의 클라이언트별 실전 통계·주간 인기, MinIR 판정 성향, 구 LR2IR 기록, Bokutachi PB 성장·라이벌·연습 후보를 조회하고 Mocha/STELLAVERSE로 바로 이동한다.
 
 ## 실행
 
@@ -55,7 +55,7 @@ npm i && npm run build:vendor    # bms-js 버전 올릴 때만
 
 ## 한계
 
-- BMS-IR 상세 통계는 공개 페이지의 요약을 서버에서 읽으므로 Node/Render 배포에서 제공된다. 정적 GitHub Pages에서는 BMS-IR 링크와 브라우저에서 직접 조회하는 Bokutachi 기능만 동작한다.
+- BMS-IR·MinIR·LR2IR Archive 통계는 외부 응답을 서버에서 10분 캐시하므로 Node/Render 배포에서 제공된다. 정적 GitHub Pages에서는 외부 링크와 브라우저에서 직접 조회하는 Bokutachi 기능만 동작한다.
 - 지뢰(`D1–E9`)는 파싱·통계·렌더·재생 어디에도 없다. bmspc도 무시하므로 분석 결과와 일관된다.
 - `#RANDOM`은 분기 선택·재추첨을 지원한다. `#SETRANDOM`/`#SWITCH`는 배지와 파서 경고만 표시한다.
 - 패턴 태그 임계값은 7K 기준 튜닝 값. DP/PMS는 원본과 마찬가지로 best-effort.
