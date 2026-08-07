@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parse, decode } from '../js/load.js'
-import { toLanes, laneGeom, laneLabel, laneOrder } from '../js/lanes.js'
+import { toLanes, laneGeom, laneLabel, laneOrder, laneSpec, randomLaneSpec, remapLanes } from '../js/lanes.js'
 import { analyze, measureToken, radar, RADAR_AXES } from '../js/analyze.js'
 import { extract, trillRatio, FEATURE_NAMES } from '../js/features.js'
 import { boundaries, segments, SEG_FEATURES } from '../js/segment.js'
@@ -133,6 +133,18 @@ const SEVEN = [
   assert.deepEqual(laneOrder(dp).map(c => laneLabel(c, dp)),
     ['S', 1, 2, 3, 4, 5, 6, 7, 1, 2, 3, 4, 5, 6, 7, 'S'])
   assert.deepEqual(laneOrder(pms).map(c => laneLabel(c, pms)), [1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+  // 재생 레인 지정 — 스크래치·5K의 빈 6/7키는 그대로, DP 양쪽은 독립 지정.
+  assert.equal(laneSpec(five), '12345')
+  const sample = [0, 1, 4, 5, 7].map(col => ({ time: 0, col }))
+  assert.deepEqual(remapLanes(sample, five, '54321').map(n => n.col), [0, 3, 4, 5, 7])
+  assert.equal(laneSpec(dp), '1234567/1234567')
+  assert.deepEqual(remapLanes([{ time: 0, col: 0 }, { time: 0, col: 7 }], dp, '2345671/7654321').map(n => n.col), [6, 13])
+  assert.throws(() => remapLanes(sample, five, '11234'), /각각 한 번/)
+  const random = Math.random
+  Math.random = () => 0
+  assert.equal(randomLaneSpec(five), '23451', 'Fisher–Yates 레인 랜덤')
+  Math.random = random
 }
 
 // ── 마디 길이 배율이 박·시간에 반영되는가 ───────────────────────────────────

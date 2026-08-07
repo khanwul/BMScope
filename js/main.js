@@ -1,5 +1,5 @@
 import { loadFile } from './load.js'
-import { toLanes } from './lanes.js'
+import { laneSpec, randomLaneSpec, remapLanes, toLanes } from './lanes.js'
 import { analyze, measureToken, radar, RANK_NAMES } from './analyze.js'
 import { drawDensity, drawLanes, drawRadar, snapshot } from './charts.js'
 import { extract } from './features.js'
@@ -99,6 +99,42 @@ $('rate').addEventListener('input', e => {
   $('rate-v').textContent = v.toFixed(2) + '×'
 })
 
+function loadPlayerViews(notes) {
+  const { parsed, lanes, stats, segs } = current
+  const view = { notes, keyCols: lanes.keyCols, scratchCols: lanes.scratchCols, segs }
+  overview.load({ ...view, totalBeats: lanes.totalBeats, measureStarts: lanes.measureStarts, timing: parsed.timing })
+  playView.load({ ...view, measureStarts: lanes.measureStarts, timing: parsed.timing, pos: parsed.pos })
+  player.load({ ...view, duration: stats.duration })
+}
+
+function applyLaneOrder(spec) {
+  const input = $('lane-order')
+  try {
+    const notes = remapLanes(current.lanes.notes, current.lanes, spec)
+    input.setCustomValidity('')
+    input.value = spec.replace(/\s/g, '')
+    const time = player.now(), wasPlaying = player.playing(), range = timeline.getRange()
+    loadPlayerViews(notes)
+    timeline.setNotes(notes)
+    player.setRange(range)
+    player.seek(time)
+    overview.setRange(toBeats(range))
+    setCursor(time)
+    if (wasPlaying) player.play(time)
+    syncTransport()
+  } catch (error) {
+    input.setCustomValidity(error.message)
+    input.reportValidity()
+  }
+}
+
+$('lane-order').addEventListener('input', e => e.currentTarget.setCustomValidity(''))
+$('lane-order').addEventListener('change', e => applyLaneOrder(e.currentTarget.value))
+$('lane-order').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur() }
+})
+$('lane-random').addEventListener('click', () => applyLaneOrder(randomLaneSpec(current.lanes)))
+
 function selectSegment(seg) {
   if (seg) timeline.setRange({ a: seg.t0, b: seg.t1 })
 }
@@ -151,9 +187,9 @@ async function show(file, random = 1) {
   const { segs } = current
   const view = { notes: lanes.notes, keyCols: lanes.keyCols, scratchCols: lanes.scratchCols, segs }
   timeline.load({ ...view, id: `${file.name}${file.size}:${parsed.randomChoice}`, duration: stats.duration })
-  overview.load({ ...view, totalBeats: lanes.totalBeats, measureStarts: lanes.measureStarts, timing: parsed.timing })
-  playView.load({ ...view, measureStarts: lanes.measureStarts, timing: parsed.timing, pos: parsed.pos })
-  player.load({ ...view, duration: stats.duration })
+  loadPlayerViews(lanes.notes)
+  $('lane-order').value = laneSpec(lanes)
+  $('lane-order').title = lanes.scratchCols.length === 2 ? '1P/2P 순서 (예: 54321/12345)' : '레인 순서 (예: 54321)'
   syncTransport()
 
   const { info, bpm, counts, density } = stats

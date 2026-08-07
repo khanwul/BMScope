@@ -152,6 +152,7 @@ export function createTimeline(canvas, { onSeek, onRange } = {}) {
   return {
     /** 채보를 갈아끼운다. `id` 가 바뀌면 미리보기를 다시 굽는다. */
     load(next) { data = next; range = null; time = 0; bakedFor = ''; onRange?.(null); draw() },
+    setNotes(notes) { data.notes = notes; bakedFor = ''; draw() },
     setTime(t) { time = t; draw() },
     setSegs(segs) { if (data) { data.segs = segs; draw() } },
     setRange(r) { range = r; time = r ? r.a : time; onRange?.(range); onSeek?.(time); draw() },

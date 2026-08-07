@@ -46,6 +46,45 @@ export function laneOrder({ keyCols, scratchCols }) {
   return keys // PMS: 스크래치 없음
 }
 
+// 재생용 레인 옵션. 스크래치는 고정하고, DP 는 1P/2P 를 따로 섞는다.
+function keyGroups({ mode, keyCols, scratchCols }) {
+  const sides = scratchCols.length === 2 ? 2 : 1
+  const keys = parseInt(mode, 10) / sides
+  const stride = keyCols / sides
+  return Array.from({ length: sides }, (_, side) =>
+    Array.from({ length: keys }, (_, i) => side * stride + i))
+}
+
+export const laneSpec = lanes => keyGroups(lanes).map(g => g.map((_, i) => i + 1).join('')).join('/')
+
+/** `54321` = 화면 1…5번 레인에 원본 5…1번을 놓는다. */
+export function remapLanes(notes, lanes, spec) {
+  const groups = keyGroups(lanes)
+  const parts = spec.replace(/\s/g, '').split('/')
+  const map = new Map()
+  if (parts.length !== groups.length) throw new Error(`레인 순서는 ${laneSpec(lanes)} 형식이어야 합니다`)
+  groups.forEach((group, side) => {
+    const order = [...parts[side]].map(Number)
+    if (order.length !== group.length || new Set(order).size !== group.length || order.some(n => n < 1 || n > group.length))
+      throw new Error(`1–${group.length}을 각각 한 번씩 입력하세요`)
+    order.forEach((source, destination) => map.set(group[source - 1], group[destination]))
+  })
+  return notes
+    .map(n => ({ ...n, col: map.get(n.col) ?? n.col }))
+    .sort((a, b) => a.time - b.time || a.col - b.col)
+}
+
+export function randomLaneSpec(lanes) {
+  return keyGroups(lanes).map(group => {
+    const order = group.map((_, i) => i + 1)
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[order[i], order[j]] = [order[j], order[i]]
+    }
+    return order.join('')
+  }).join('/')
+}
+
 /** 레인별 x 오프셋과 폭. 왼쪽 끝 기준의 상대 좌표. `scale` 로 통째로 키운다. */
 export function laneGeom(lanes, scale = 1) {
   const scratch = new Set(lanes.scratchCols)

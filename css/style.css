@@ -118,6 +118,12 @@ canvas { display: block; width: 100%; }
 #controls label { display: flex; align-items: center; gap: 6px; color: var(--dim); }
 #controls input[type=range] { width: 110px; accent-color: var(--accent); }
 #controls .chk { cursor: pointer; }
+#lane-order, #lane-random {
+  padding: 4px 7px; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--grid); border-radius: 5px;
+}
+#lane-order { width: 120px; font-variant-numeric: tabular-nums; }
+#lane-random { cursor: pointer; }
 #playpause {
   padding: 5px 14px; font: inherit; font-weight: 600;
   background: var(--accent); color: #0b0d12; border: 0; border-radius: 6px; cursor: pointer;
