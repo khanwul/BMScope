@@ -157,11 +157,8 @@ document.querySelectorAll('input[name=mode]').forEach(r =>
   r.addEventListener('change', e => {
     mode = e.target.value
     const play = mode === 'play'
-    $('overview').hidden = play
-    $('play').hidden = !play
-    $('view-hint').textContent = play
-      ? '스페이스 = 재생/일시정지 · 배경색 = 구간 태그 · 하이스피드와 배속은 별개 노브'
-      : '끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그 · 하이스피드 = 가로 확대'
+    $('overview-view').hidden = play
+    $('play-view').hidden = !play
     // 재생은 모드와 무관하다 — 전체 보기로 넘어와도 그대로 흐른다.
     syncTransport()
     setCursor(cursor)
@@ -370,8 +367,12 @@ $('copy-analysis').addEventListener('click', async e => {
   setTimeout(() => { e.currentTarget.textContent = label }, 1200)
 })
 
-document.querySelectorAll('input[name=axis]').forEach(r =>
-  r.addEventListener('change', e => { axis = e.target.value; redraw() }))
+document.querySelectorAll('.axis-control').forEach(r =>
+  r.addEventListener('change', e => {
+    axis = e.target.value
+    document.querySelectorAll('.axis-control').forEach(x => { x.checked = x.value === axis })
+    redraw()
+  }))
 
 // 구간 방식을 바꾸면 태그 밴드·오버레이·목록이 전부 갈리므로 다시 계산해 셋 다 갱신한다.
 // 선택해 둔 재생 구간은 건드리지 않는다 — 경계가 조금 달라져도 사용자가 고른 범위는 유지.

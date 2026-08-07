@@ -27,6 +27,19 @@ const listeners = new Map()
 const cache = new Map()
 const missing = []
 
+const control = (key, value, checked = false) => ({
+  value, checked,
+  addEventListener(type, fn) { listeners.set(`${key}:${type}`, fn) },
+})
+const controls = {
+  'input[name=mode]': [control('mode:overview', 'overview', true), control('mode:play', 'play')],
+  '.axis-control': [
+    control('overview-axis:measures', 'measures', true), control('overview-axis:seconds', 'seconds'),
+    control('play-axis:measures', 'measures', true), control('play-axis:seconds', 'seconds'),
+  ],
+  'input[name=segmode]': [control('segmode:texture', 'texture'), control('segmode:fine', 'fine', true)],
+}
+
 function el(id) {
   const c = ctx2d()
   return {
@@ -55,7 +68,7 @@ let lastCreated = null
 globalThis.document = {
   documentElement: {},
   getElementById: id => (IDS.has(id) ? cache.get(id) : (missing.push(id), null)),
-  querySelectorAll: () => [],
+  querySelectorAll: selector => controls[selector] || [],
   createElement: () => (lastCreated = el('offscreen')),
 }
 globalThis.URL.createObjectURL = () => 'blob:x'
@@ -121,6 +134,14 @@ assert.equal(cache.get('title').textContent, 'BMScope Demo')
 assert.match(cache.get('stats').innerHTML, /<dt>노트<\/dt>/)
 assert.match(cache.get('segments').innerHTML, /class="tag tag-/)
 assert.match(cache.get('badges').innerHTML, /7K/)
+
+// 상단 탭은 분석과 재생 묶음 전체를 바꾸고, 돌아와도 같은 커서를 유지한다.
+listeners.get('mode:play:change')({ target: controls['input[name=mode]'][1] })
+assert.equal(cache.get('overview-view').hidden, true)
+assert.equal(cache.get('play-view').hidden, false)
+listeners.get('mode:overview:change')({ target: controls['input[name=mode]'][0] })
+assert.equal(cache.get('overview-view').hidden, false)
+assert.equal(cache.get('play-view').hidden, true)
 
 // 구간 목록도 타임라인 밴드처럼 한 번 클릭으로 재생 구간을 잡는다.
 listeners.get('segments:click')({ target: { closest: () => ({ dataset: { seg: '0' } }) } })

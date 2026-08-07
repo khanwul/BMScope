@@ -48,77 +48,92 @@
         </div>
       </section>
 
-      <section class="panel">
-        <h3>채보
-          <span class="seg">
-            <label><input type="radio" name="mode" value="overview" checked>전체 보기</label>
-            <label><input type="radio" name="mode" value="play">재생</label>
-          </span>
-          <span id="view-hint" class="dim">끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그</span>
-        </h3>
-        <div id="overview-wrap"><canvas id="overview"></canvas></div>
-        <canvas id="play" hidden></canvas>
-        <div id="controls">
-          <button id="playpause" type="button">▶ 재생</button>
-          <label class="chk"><input type="checkbox" id="loop" checked>구간 반복</label>
-          <label>하이스피드 <input type="range" id="hispeed" min="40" max="400" step="10" value="140">
-            <span id="hispeed-v">1.00×</span></label>
-          <label>배속 <input type="range" id="rate" min="25" max="200" step="5" value="100">
-            <span id="rate-v">1.00×</span></label>
-          <label>레인 <input id="lane-order" type="text" autocomplete="off" spellcheck="false"></label>
-          <button id="lane-random" type="button">랜덤</button>
-          <span id="seg-now" class="dim"></span>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h3>타임라인
-          <span class="dim">끌어서 구간 선택 · 태그 밴드 클릭 = 그 구간 · 클릭 = 이동</span>
-          <button id="clear-range" type="button" hidden>전체</button>
-        </h3>
-        <canvas id="timeline"></canvas>
-        <p id="range" class="dim"></p>
-      </section>
-
-      <section id="viewmode">
+      <nav id="view-tabs" aria-label="분석 화면">
         <span class="seg">
-          <label><input type="radio" name="axis" value="measures" checked>마디별</label>
-          <label><input type="radio" name="axis" value="seconds">시간별</label>
+          <label><input type="radio" name="mode" value="overview" checked>채보 전체</label>
+          <label><input type="radio" name="mode" value="play">재생</label>
         </span>
-        <span class="dim">밀도 그래프와 구간 목록에 함께 적용됩니다</span>
-      </section>
+      </nav>
 
-      <section class="panel">
-        <h3>밀도 <span class="dim">막대 = 종류별 노트 수 · 실선 = 순간 최대 밀도 · 파선 = BPM</span></h3>
-        <canvas id="density"></canvas>
-      </section>
+      <div id="overview-view" class="view">
+        <section class="panel">
+          <h3>채보 전체
+            <span class="dim">끌면 재생 위치 이동 · Shift+클릭 = 그 구간 선택 · 배경색 = 구간 태그</span>
+          </h3>
+          <div id="overview-wrap"><canvas id="overview"></canvas></div>
+        </section>
 
-      <section class="panel">
-        <h3>구간별 패턴
-          <span class="seg">
-            <label><input type="radio" name="segmode" value="texture">텍스처</label>
-            <label><input type="radio" name="segmode" value="fine" checked>세분화</label>
-          </span>
-          <span id="seg-count" class="dim"></span>
-          <span class="dim">bmspc 이식 · 임계값은 7K 기준 튜닝 (DP/PMS는 미검증)</span>
-        </h3>
-        <ol id="segments"></ol>
-      </section>
+        <section class="panel">
+          <h3>밀도
+            <span class="seg">
+              <label><input class="axis-control" type="radio" name="overview-axis" value="measures" checked>마디별</label>
+              <label><input class="axis-control" type="radio" name="overview-axis" value="seconds">시간별</label>
+            </span>
+            <span class="dim">막대 = 종류별 노트 수 · 실선 = 순간 최대 밀도 · 파선 = BPM</span>
+          </h3>
+          <canvas id="density"></canvas>
+        </section>
 
-      <section class="cols">
-        <div class="panel">
-          <h3>통계</h3>
-          <dl id="stats"></dl>
-        </div>
-        <div class="panel">
-          <h3>성향 <span class="dim">0–100, BMScope 자체 기준</span></h3>
-          <canvas id="radar"></canvas>
-        </div>
-        <div class="panel">
-          <h3>레인별 분포</h3>
-          <canvas id="lanes"></canvas>
-        </div>
-      </section>
+        <section class="cols">
+          <div class="panel">
+            <h3>통계</h3>
+            <dl id="stats"></dl>
+          </div>
+          <div class="panel">
+            <h3>성향 <span class="dim">0–100, BMScope 자체 기준</span></h3>
+            <canvas id="radar"></canvas>
+          </div>
+          <div class="panel">
+            <h3>레인별 분포</h3>
+            <canvas id="lanes"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <div id="play-view" class="view" hidden>
+        <section class="panel">
+          <h3>재생기
+            <span class="dim">스페이스 = 재생/일시정지 · 배경색 = 구간 태그 · 하이스피드와 배속은 별개 노브</span>
+          </h3>
+          <canvas id="play"></canvas>
+          <div id="controls">
+            <button id="playpause" type="button">▶ 재생</button>
+            <label class="chk"><input type="checkbox" id="loop" checked>구간 반복</label>
+            <label>하이스피드 <input type="range" id="hispeed" min="40" max="400" step="10" value="140">
+              <span id="hispeed-v">1.00×</span></label>
+            <label>배속 <input type="range" id="rate" min="25" max="200" step="5" value="100">
+              <span id="rate-v">1.00×</span></label>
+            <label>레인 <input id="lane-order" type="text" autocomplete="off" spellcheck="false"></label>
+            <button id="lane-random" type="button">랜덤</button>
+            <span id="seg-now" class="dim"></span>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>타임라인
+            <span class="dim">끌어서 구간 선택 · 태그 밴드 클릭 = 그 구간 · 클릭 = 이동</span>
+            <button id="clear-range" type="button" hidden>전체</button>
+          </h3>
+          <canvas id="timeline"></canvas>
+          <p id="range" class="dim"></p>
+        </section>
+
+        <section class="panel">
+          <h3>구간별 패턴
+            <span class="seg">
+              <label><input type="radio" name="segmode" value="texture">텍스처</label>
+              <label><input type="radio" name="segmode" value="fine" checked>세분화</label>
+            </span>
+            <span class="seg">
+              <label><input class="axis-control" type="radio" name="play-axis" value="measures" checked>마디별</label>
+              <label><input class="axis-control" type="radio" name="play-axis" value="seconds">시간별</label>
+            </span>
+            <span id="seg-count" class="dim"></span>
+            <span class="dim">bmspc 이식 · 임계값은 7K 기준 튜닝 (DP/PMS는 미검증)</span>
+          </h3>
+          <ol id="segments"></ol>
+        </section>
+      </div>
 
       <p id="warn" class="dim"></p>
     </main>

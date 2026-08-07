@@ -50,7 +50,8 @@ h2 { margin: 0; font-size: 22px; overflow-wrap: anywhere; }
 h3 { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--fg); }
 h3 .dim { font-weight: 400; margin-left: 8px; }
 
-#viewmode { display: flex; align-items: center; gap: 10px; margin-bottom: -6px; }
+#view-tabs { display: flex; justify-content: center; }
+#view-tabs .seg label { padding: 6px 24px; font-size: 13px; }
 .seg { display: inline-flex; border: 1px solid var(--grid); border-radius: 6px; overflow: hidden; }
 .seg label { padding: 3px 12px; font-size: 12px; font-weight: 500; color: var(--dim); cursor: pointer; }
 .seg label + label { border-left: 1px solid var(--grid); }
@@ -84,6 +85,7 @@ h3 .dim { font-weight: 400; margin-left: 8px; }
 }
 
 main { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+.view { display: flex; flex-direction: column; gap: 16px; }
 
 #head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 #head > div:first-child { flex: 1 1 320px; min-width: 0; }
@@ -142,7 +144,10 @@ h3 button {
 }
 h3 button:hover { color: var(--fg); border-color: var(--accent); }
 
-#segments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+#segments {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;
+  max-height: 360px; overflow-y: auto;
+}
 #segments li { display: flex; align-items: center; gap: 6px; }
 #segments li[data-seg] { cursor: pointer; border-radius: 5px; }
 #segments li[data-seg]:hover { background: var(--grid); }
@@ -177,7 +182,8 @@ dd small { color: var(--dim); font-weight: 400; }
 
 #error:not([hidden]),
 main:not([hidden]) { animation: rise .32s ease-out; }
-main:not([hidden]) > * {
+main:not([hidden]) > :not(.view),
+main:not([hidden]) .view > * {
   animation: rise .32s ease-out both;
   animation-timeline: view();
   animation-range: entry 0% cover 18%;
