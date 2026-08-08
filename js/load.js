@@ -15,7 +15,7 @@ export function decode(buf) {
   return sjis
 }
 
-const EXTS = ['bms', 'bme', 'bml', 'pms']
+export const EXTS = ['bms', 'bme', 'bml', 'pms']
 
 // 형식 검사는 여기 한 곳. 확장자만 보면 이름만 바꾼 mp3 를 통과시키고, 내용만 보면
 // 오탈자 확장자를 조용히 먹는다 — 둘 다 본다. BMS 는 최소 한 줄이 `#명령` 이다.
@@ -29,7 +29,6 @@ export function parse(text, { name = '', random = 1 } = {}) {
   const randomChoice = Math.min(randomMax || 1, Math.max(1, Math.floor(random)))
   const { chart, warnings } = compile(text, { rng: max => Math.min(randomChoice, max) })
   return {
-    name,
     ext,
     chart,
     warnings,

@@ -8,7 +8,7 @@ import { refine, tagSegments } from './tagger.js'
 import { createTimeline } from './timeline.js'
 import { createOverview, createPlayView, HISPEED_1X } from './preview.js'
 import { createPlayer } from './player.js'
-import { irComparison, loadTachi, practiceSegments } from './ir.js'
+import { IR_CLIENTS, irComparison, loadTachi, practiceSegments } from './ir.js'
 
 const $ = id => document.getElementById(id)
 const $$ = selector => document.querySelectorAll(selector)
@@ -167,7 +167,7 @@ function setMode(next) {
   $('ir-view').hidden = mode !== 'ir'
   $('view-controls').hidden = mode === 'ir' // IR 탭에는 그릴 캔버스가 없다
   if (mode === 'ir') {
-    if (current && !current.ir && !current.irLoading) loadIrData()
+    if (current && !current.ir) loadIrData()
     return
   }
   // 켜지는 쪽 캔버스는 방금까지 0×0 이라 안 그려졌다 — 여기서 채운다.
@@ -253,7 +253,6 @@ async function show(file, random = 1) {
 }
 
 // ── 외부 IR ─────────────────────────────────────────────────────────────
-const IR_CLIENTS = { lr2: 'LR2', openlr2: 'OpenLR2', lr2oraja: 'LR2oraja', lr2oraja_ed: 'LR2oraja ED', beatoraja: 'beatoraja' }
 const irClient = () => IR_CLIENTS[$('ir-client').value] ? $('ir-client').value : 'lr2'
 const bmsIrUrl = (md5, client = irClient()) => `https://bms-ir.org/new/song?songmd5=${md5}&client_view=${client}`
 const mochaUrl = info => `https://mocha-repository.info/songs2.php?title=${encodeURIComponent(info.title || '')}&artist=${encodeURIComponent(info.artist || '')}`
@@ -433,7 +432,6 @@ $('ir-recommend').addEventListener('click', async e => {
 
 async function loadIrData() {
   if (!current) return
-  current.irLoading = true
   const request = ++irRequest
   const { hashes } = current.parsed
   const client = irClient()
@@ -451,7 +449,6 @@ async function loadIrData() {
     fetch(`/api/ir/${hashes.md5}?sha256=${hashes.sha256}&client=${client}`).then(r => r.ok ? r.json() : Promise.reject(new Error())),
   ])
   if (request !== irRequest || current?.parsed.hashes.md5 !== hashes.md5) return
-  current.irLoading = false
   current.ir = {
     tachi: tachi.status === 'fulfilled' ? tachi.value : null,
     bmsir: bmsir.status === 'fulfilled' ? bmsir.value : null,

@@ -105,7 +105,7 @@
         <section class="panel">
           <h3>IR · 실전 데이터 <span class="dim">파일 해시로 조회 · 점수는 전송하지 않음</span></h3>
           <div id="ir-tools">
-            <nav id="ir-links" aria-label="외부 IR">
+            <nav aria-label="외부 IR">
               <a id="bmsir-link" target="_blank" rel="noopener">BMS-IR</a>
               <a href="https://www.gaftalk.com/minir/" target="_blank" rel="noopener">MinIR</a>
               <a id="lr2archive-link" target="_blank" rel="noopener">LR2IR Archive</a>
@@ -172,7 +172,7 @@
             <span class="dim">스페이스 = 재생/일시정지 · 배경색 = 구간 태그 · 하이스피드와 배속은 별개 노브</span>
           </h3>
           <canvas id="play"></canvas>
-          <div id="controls" class="viewer-controls">
+          <div class="viewer-controls">
             <button id="playpause" type="button">▶ 재생</button>
             <label class="chk"><input type="checkbox" id="loop" checked>구간 반복</label>
             <label>배속 <input type="range" id="rate" min="25" max="200" step="5" value="100">
@@ -214,8 +214,14 @@
         번들 <a href="https://github.com/evanw/esbuild">esbuild</a> (MIT)
       </p>
       <p>
+        IR 데이터 <a href="https://bms-ir.org/">BMS-IR</a> ·
+        <a href="https://boku.tachi.ac/">Bokutachi</a> ·
+        <a href="https://www.gaftalk.com/minir/">MinIR</a> ·
+        <a href="https://lr2ir.com/">LR2IR Archive</a>
+      </p>
+      <p>
         <a href="https://github.com/khanwul/BMScope">BMScope</a> — MIT ·
-        직접 연 파일은 브라우저 안에서만 처리되며 업로드되지 않습니다.
+        직접 연 파일은 브라우저 안에서만 처리되며 업로드되지 않습니다 (IR 조회에는 파일 해시만 전송).
       </p>
     </footer>
 

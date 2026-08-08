@@ -61,7 +61,7 @@ function line(ctx, bars, valueOf, toY, x0, bw, color, { dash = [], step = false 
  *   쌓은 막대 = 종류별 노트 수 · 실선 = 순간 최대 밀도(1초 창) · 파선 = BPM
  * `tick(i)` 이 x축 라벨을 만든다.
  */
-export function drawDensity(canvas, bars, { tick = i => i } = {}) {
+export function drawDensity(canvas, bars, { tick }) {
   const box = fit(canvas)
   if (!box || !bars.length) return
   const { ctx, w, h } = box

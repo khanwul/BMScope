@@ -34,7 +34,7 @@ function standardize(X) {
  * 정확 알고리즘이므로 같은 목적함수를 풀면 경계가 같다.
  *   cost(i,j) = Σ_dim Σ_{i≤t<j} (x - 평균)²   ← 누적합 두 개로 O(d) 조회
  */
-function pelt(X, pen, { minSize = MIN_SIZE, jump = JUMP } = {}) {
+function pelt(X, pen) {
   const n = X.length, d = X[0].length
   const S1 = new Float64Array((n + 1) * d)
   const S2 = new Float64Array((n + 1) * d)
@@ -54,14 +54,14 @@ function pelt(X, pen, { minSize = MIN_SIZE, jump = JUMP } = {}) {
   }
 
   const ind = []
-  for (let k = 0; k < n; k += jump) if (k >= minSize) ind.push(k)
+  for (let k = 0; k < n; k += JUMP) if (k >= MIN_SIZE) ind.push(k)
   ind.push(n)
 
   const G = new Map([[0, 0]]) // G[t] = 0..t 최적 분할 비용(페널티 포함)
   const prev = new Map()
   let admissible = []
   for (const bkp of ind) {
-    admissible.push(Math.floor((bkp - minSize) / jump) * jump)
+    admissible.push(Math.floor((bkp - MIN_SIZE) / JUMP) * JUMP)
     const vals = admissible.map(t => (G.has(t) ? G.get(t) + cost(t, bkp) + pen : Infinity))
     let best = Infinity, bestT = -1
     // 동점이면 첫 항 — 파이썬 min() 과 같은 규칙

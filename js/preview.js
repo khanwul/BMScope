@@ -143,7 +143,7 @@ export function createPlayView(canvas) {
  * 화면에 고정해 두고 컬럼 수를 늘린다(악보식이라 세로로 늘리면 한 컬럼도 다 못 본다).
  * 1배면 캔버스가 폭에 딱 맞고, 올리면 넘친 만큼 감싼 래퍼가 가로 스크롤한다.
  */
-export function createOverview(canvas, { onSelect, onSeek } = {}) {
+export function createOverview(canvas, { onSelect, onSeek }) {
   let data = null
   let time = 0
   let range = null

@@ -2,6 +2,9 @@ import { numeric } from './analyze.js'
 
 const TACHI = 'https://boku.tachi.ac'
 
+// BMS-IR 클라이언트 id → 표시 이름. 화면·서버 검증이 같은 표를 본다.
+export const IR_CLIENTS = { lr2: 'LR2', openlr2: 'OpenLR2', lr2oraja: 'LR2oraja', lr2oraja_ed: 'LR2oraja ED', beatoraja: 'beatoraja' }
+
 /** Web Crypto가 지원하지 않는 MD5는 IR 식별용으로만 최소 구현한다. */
 export function md5(buffer) {
   const src = new Uint8Array(buffer)
@@ -153,7 +156,7 @@ export async function loadTachi({ sha256, mode, username = '', rival = '' }) {
   const game = irGame(mode)
   const found = await api(`/search/chart-hash?search=${sha256}`)
   const chart = found.charts.find(c => c.game === game) || found.charts[0] || null
-  if (!chart) return { chart: null, game, pbs: summarizePBs(), personal: null, recent: [], recommendations: [] }
+  if (!chart) return { chart: null, pbs: summarizePBs(), personal: null, recent: [], recommendations: [] }
 
   const [board, popular, personal, history, scoreHistory, rivalPb] = await Promise.all([
     api(`/games/${chart.game}/charts/${chart.chartID}/pbs`).catch(() => ({ pbs: [] })),
@@ -170,7 +173,6 @@ export async function loadTachi({ sha256, mode, username = '', rival = '' }) {
   })
   return {
     chart,
-    game: chart.game,
     url: `${TACHI}/games/${chart.game}/charts/${chart.chartID}`,
     levels: chart.data.tableFolders || {},
     aiLevel: chart.data.aiLevel,

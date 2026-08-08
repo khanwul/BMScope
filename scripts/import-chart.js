@@ -2,19 +2,10 @@ import { basename, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { createPool, SCHEMA } from '../db.js'
-import { loadFile } from '../js/load.js'
+import { EXTS, loadFile } from '../js/load.js'
 
-const EXT = /\.(bms|bme|bml|pms)$/i
+const EXT = new RegExp(`\\.(${EXTS.join('|')})$`, 'i')
 const MAX_BYTES = 5 * 1024 * 1024
-
-async function walk(dir, root, out) {
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name)
-    if (entry.isDirectory()) await walk(path, root, out)
-    else if (entry.isFile() && EXT.test(entry.name))
-      out.push({ path, name: relative(root, path).split(sep).join('/') })
-  }
-}
 
 export async function collectCharts(input) {
   const path = resolve(input)
@@ -24,9 +15,11 @@ export async function collectCharts(input) {
     return [{ path, name: basename(path) }]
   }
   if (!info.isDirectory()) throw new Error('파일 또는 폴더가 아닙니다')
-  const out = []
-  await walk(path, path, out)
-  return out.sort((a, b) => a.name.localeCompare(b.name))
+  return (await readdir(path, { recursive: true, withFileTypes: true }))
+    .filter(entry => entry.isFile() && EXT.test(entry.name))
+    .map(entry => join(entry.parentPath, entry.name))
+    .map(file => ({ path: file, name: relative(path, file).split(sep).join('/') }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 async function importCharts(input) {

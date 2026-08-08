@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname, extname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createPool, SCHEMA } from './db.js'
+import { IR_CLIENTS } from './js/ir.js'
 
 const ROOT = dirname(fileURLToPath(import.meta.url))
 const TYPES = {
@@ -130,15 +131,15 @@ async function fetchJson(fetcher, url, headers = {}) {
   return response.json()
 }
 
-function publicFile(root, pathname) {
-  if (pathname === '/') return join(root, 'index.html')
+function publicFile(pathname) {
+  if (pathname === '/') return join(ROOT, 'index.html')
   let file
-  try { file = resolve(root, '.' + decodeURIComponent(pathname)) } catch { return null }
-  const publicRoots = [join(root, 'css'), join(root, 'js')]
+  try { file = resolve(ROOT, '.' + decodeURIComponent(pathname)) } catch { return null }
+  const publicRoots = [join(ROOT, 'css'), join(ROOT, 'js')]
   return publicRoots.some(dir => file.startsWith(dir + sep)) ? file : null
 }
 
-async function handle(req, res, pool, root, fetcher) {
+async function handle(req, res, pool, fetcher) {
   const url = new URL(req.url, 'http://localhost')
   const { pathname } = url
 
@@ -147,10 +148,9 @@ async function handle(req, res, pool, root, fetcher) {
   const ir = req.method === 'GET' && pathname.match(/^\/api\/ir\/([\da-f]{32})$/i)
   if (ir) {
     const md5 = ir[1].toLowerCase()
-    const clients = ['lr2', 'openlr2', 'lr2oraja', 'lr2oraja_ed', 'beatoraja']
     const client = url.searchParams.get('client') || 'lr2'
     const sha256 = url.searchParams.get('sha256') || ''
-    if (!clients.includes(client)) return json(res, 400, { error: '지원하지 않는 BMS-IR 클라이언트입니다' })
+    if (!Object.hasOwn(IR_CLIENTS, client)) return json(res, 400, { error: '지원하지 않는 BMS-IR 클라이언트입니다' })
     if (sha256 && !/^[\da-f]{64}$/i.test(sha256)) return json(res, 400, { error: '잘못된 SHA-256입니다' })
     const [song, popular, minir, archive] = await Promise.allSettled([
       cached(`song:${client}:${md5}`, async () => parseBmsIrSong(await fetchText(fetcher, `https://bms-ir.org/new/song?songmd5=${md5}&client_view=${client}`))),
@@ -197,7 +197,7 @@ async function handle(req, res, pool, root, fetcher) {
   if (pathname.startsWith('/api/')) return json(res, 404, { error: 'Not found' })
   if (req.method !== 'GET') return send(res, 405, 'Method Not Allowed', 'text/plain; charset=utf-8')
 
-  const file = publicFile(root, pathname)
+  const file = publicFile(pathname)
   if (!file) return send(res, 404, 'Not Found', 'text/plain; charset=utf-8')
   try {
     const data = await readFile(file)
@@ -208,8 +208,8 @@ async function handle(req, res, pool, root, fetcher) {
   }
 }
 
-export function createHandler(pool, root = ROOT, fetcher = fetch) {
-  return (req, res) => handle(req, res, pool, root, fetcher).catch(error => {
+export function createHandler(pool, fetcher = fetch) {
+  return (req, res) => handle(req, res, pool, fetcher).catch(error => {
     console.error(error)
     if (!res.headersSent) json(res, 500, { error: '서버 오류가 발생했습니다' })
     else res.end()

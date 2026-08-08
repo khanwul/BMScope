@@ -139,7 +139,7 @@ export function radar(wf) {
       if (key === 'PEAK') raw = [...vals].sort((a, b) => a - b)[Math.floor(0.95 * (vals.length - 1))]
       else raw = vals.reduce((s, v) => s + v, 0) / vals.length
     }
-    return { key, label, raw, value: Math.min(100, Math.max(0, (raw / K) * 100)) }
+    return { key, label, value: Math.min(100, Math.max(0, (raw / K) * 100)) }
   })
 }
 

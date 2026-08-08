@@ -103,7 +103,7 @@ assert.deepEqual(summarizeLr2Archive(archiveData), {
 })
 
 const irCalls = []
-const irHandler = createHandler(null, undefined, async (url, options) => {
+const irHandler = createHandler(null, async (url, options) => {
   irCalls.push({ url, options })
   if (url.includes('getSongScores')) return { ok: true, json: async () => minirRows }
   if (url.includes('lr2ir.com/api')) return { ok: true, json: async () => archiveData }

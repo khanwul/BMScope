@@ -14,7 +14,7 @@ const GRAB = 8 // 구간 경계 스냅 / 핸들 잡기 허용 오차(px)
  * @param onSeek  (초) => void          커서를 옮길 때
  * @param onRange ({a, b}) => void      재생 구간이 바뀔 때
  */
-export function createTimeline(canvas, { onSeek, onRange } = {}) {
+export function createTimeline(canvas, { onSeek, onRange }) {
   let data = null // { notes, scratchCols, keyCols, segs, duration }
   let baked = null // 미리보기 오프스크린
   let bakedFor = '' // 다시 구울지 판단하는 키 (폭 × 로드한 채보)
